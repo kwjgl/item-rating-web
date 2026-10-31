@@ -1011,8 +1011,8 @@ function panelHtml(log, P, step) {
       <legend>${esc(c.name)}</legend>
       ${c.cue ? `<p class="crit-def crit-cue">${esc(c.cue)}</p>` : `<p class="crit-def">${esc(c.definition)}</p>`}
       <div class="crit-opts">
-        ${c.levels.map((t, i) => {
-          const v = i + 1, on = log.ratings[c.key] === v;
+        ${(P.scaleOrder === 'desc' ? c.levels.map((t, i) => [t, i + 1]).reverse() : c.levels.map((t, i) => [t, i + 1])).map(([t, v]) => {
+          const on = log.ratings[c.key] === v;
           return `<button type="button" class="rate-btn ${on ? 'on' : ''}" aria-pressed="${on}" data-crit="${c.key}" data-v="${v}">
             <span class="rb-n">${v}</span><span class="rb-t">${rich(t)}</span></button>`;
         }).join('')}
