@@ -205,7 +205,6 @@
   .lay-sidefix .i-passage { overflow-y: auto; min-height: 0; }
   .lay-sidefix .i-q { overflow-y: auto; min-height: 0; }
   .lay-stack .i-passage { margin-bottom: 24px; }
-  .i-ptitle { font-weight: 700; margin-bottom: 8px; }
   /* 지문 속 그림(도해). 들어갈 칸의 너비에 맞춰 그려지고, 너무 커지지 않게 높이를 묶어 둔다.
      칸 너비는 문항 화면 안에서 고정이므로 모든 평정자에게 똑같은 크기로 보인다. */
   /* max-width 를 두는 까닭: 지문 칸이 넓은 배치(지문 위)에서는 그림이 통째로 커져
@@ -220,7 +219,7 @@
   /* 문단 — 문단 사이에 빈 줄을 두지 않고(줄 간격 그대로), 첫 줄을 한 글자 들여 써서 문단을 나눈다.
      국어 교과서·평가지의 관례이고, 문단 번호 없이도 "2문단"을 셀 수 있게 하려는 것이다. */
   .i-para { margin: 0; text-indent: 1em; }
-  /* 글 제목 — 지시문(.i-ptitle) 아래, 본문 위 */
+  /* 글 제목 — 지문 상자 맨 위, 본문 위 (지시문은 상자 밖 .i-direction) */
   .i-phead { font-family: var(--serif); font-weight: 700; margin-bottom: 10px; }
   /* 문단 번호 (design.paraNums) — 지금은 쓰는 곳 없음.
      같은 글이 화면마다 번호가 있다 없다 하면 그 자체가 명료성 차이가 되므로, 쓰려면 모든 화면에 켜야 한다. */
@@ -249,6 +248,17 @@
     margin: -28px -32px 22px; padding: 14px 32px;
     background: #F1F4F8; border-bottom: 1px solid #DDE3EA;
   }
+  /* 지문 지시문("다음 글을 읽고 물음에 답하세요.") — 지문 상자 밖에 두고, 스크롤되지 않게 고정한다.
+     지문과 함께 스크롤되면 지시문을 문두로 여기는 평정자가 원본에서도 "문두가 사라진다"고 볼 수 있어서다.
+     - 기본 틀(sidefix): 왼쪽 지문 칸 맨 위(.i-leftcol 안). 그 아래 지문 상자만 스크롤되고, 오른쪽 문항 칸 높이는 그대로.
+     - 한 단 배치(stemtop·stackpin·stack·popup 등): 문항 화면 맨 위(.i-head). 화면이 밀려도 내려가지 않는다.
+       발문 띠(stemBanner)가 있으면 그 띠도 이 안에, 지시문 바로 아래에 함께 붙는다. */
+  .i-head { position: sticky; top: 0; z-index: 4; flex: none; margin: -28px -32px 16px; padding: 22px 32px 0; background: #fff; }
+  .i-direction { margin: 0; font-weight: 700; }
+  .i-head .i-stem-banner { position: static; margin: 12px 0 0; padding: 14px 32px; margin-left: -32px; margin-right: -32px; }
+  .i-head:has(.i-stem-banner) { margin-bottom: 22px; }
+  .i-leftcol .i-direction { flex: none; margin-bottom: -4px; }
+  .it.no-borders .i-direction { font-weight: 400; }
   /* 한 단 세로 배치 (layout: 'stemtop') — 발문 → 지문 → 응답 순으로 쌓인다 */
   .lay-stemtop .i-passage { margin: 0 0 24px; }
   /* 풀이에 필요 없는 그림 (design.decorSvg) */
@@ -360,7 +370,7 @@
   .hier-clear .i-stem { font-weight: 700; font-size: 1.06em; }
   /* 위계: 흐림 */
   .hier-flat { line-height: 1.45; padding: 16px 18px 40px; }
-  .hier-flat .i-ptitle, .hier-flat .i-stem { font-weight: 400; margin-bottom: 4px; }
+  .hier-flat .i-direction, .hier-flat .i-stem { font-weight: 400; margin-bottom: 4px; }
   .hier-flat .i-ptext { font-family: var(--sans); }
   .hier-flat .i-passage { margin-bottom: 6px; }
   .hier-flat .i-choices { gap: 2px; }
@@ -386,7 +396,7 @@
      글자 크기와 색, 잇기 칸의 크기·간격은 기본 틀 그대로라 읽고 조작할 수는 있지만, 어디까지가 지문이고 어디부터가
      문제·응답인지 경계가 흐리다. 좌우 배치는 기본 틀 그대로. */
   .it.no-borders .i-passage { background: transparent; border: 0; border-radius: 0; padding: 0; }
-  .it.no-borders .i-ptitle, .it.no-borders .i-phead { font-weight: 400; margin-bottom: 0; }
+  .it.no-borders .i-phead { font-weight: 400; margin-bottom: 0; }
   .it.no-borders .i-stem { font-family: var(--serif); font-weight: 400; font-size: 1em; margin-bottom: 0; }
   /* 잇기 칸의 크기·간격·연결점과 좌우 칸 너비는 원본과 똑같이 둔다 — 줄이면 명료성이 아니라 조작 난이도가
      달라진다. 테두리를 없애고 글꼴만 지문과 같은 명조로 바꿔, 지문과 응답이 한 덩어리처럼 보이게 한다. */
@@ -398,7 +408,7 @@
      지문만 해당하고, 발문·응답은 기본 틀 그대로. 14px ≈ 태블릿에서 약 7.3pt에 번짐까지 더해진다. */
   .it.scan-passage .i-passage { background: #EFEDE4; border-color: #D8D5C8; border-radius: 2px; padding: 12px 14px; }
   .it.scan-passage .i-passage > * { filter: blur(1.1px); }
-  .it.scan-passage .i-ptitle, .it.scan-passage .i-phead, .it.scan-passage .i-ptext {
+  .it.scan-passage .i-phead, .it.scan-passage .i-ptext {
     font-size: 14px; line-height: 1.45; color: #555; letter-spacing: -0.3px;
   }
 
@@ -1083,7 +1093,8 @@ function passageBlock(it, d) {
     if (it.marks) inner = markSentences(inner, it.marks);
     text =`<div class="i-ptext${d.paraNums ? ' numbered' : ''}">${inner}</div>`;
   }
-  return `<section class="i-passage"><div class="i-ptitle">${rich(P.title || '')}</div>${head}${fig}${text}</section>`;
+  // 지시문(P.title)은 지문 상자에 넣지 않고 mountItem 이 화면 맨 위(.i-head)에 따로 놓는다
+  return `<section class="i-passage">${head}${fig}${text}</section>`;
 }
 
 /**
@@ -1148,24 +1159,29 @@ function mountItem(canvas, it, log, onFirstInteract, pos, total) {
   const stem = `<p class="i-stem">${rich(it.stem)}</p>`;
   // 발문을 화면 맨 위 전체 폭 띠로 빼는 배치(design.stemBanner)
   const banner = d.stemBanner ? `<p class="i-stem i-stem-banner">${rich(it.stem)}</p>` : '';
+  // 지문 지시문 + (있으면) 발문 띠 — 모든 배치에서 화면 맨 위에 고정
+  const direction = P && P.title ? `<p class="i-direction">${rich(P.title)}</p>` : '';
+  const inLeft = d.layout === 'sidefix';   // 기본 틀은 지시문을 지문 칸 위에, 나머지는 화면 맨 위에
+  const top = direction && !inLeft ? `<header class="i-head">${direction}${banner}</header>` : banner;
   const q = `<section class="i-q">${tags}${d.stemBanner ? '' : stem}${decorInQ}${decor}<div class="i-body"></div>${decorLow}</section>`;
-  const left = decorInP && passageHtml ? `<div class="i-leftcol">${decorInP}${passageHtml}</div>` : passageHtml;
+  const leftTop = (inLeft ? direction : '') + decorInP;
+  const left = leftTop && passageHtml ? `<div class="i-leftcol">${leftTop}${passageHtml}</div>` : passageHtml;
 
   let inner;
   if (!P) inner = banner + q;
   // 한 단 세로: 발문 → 지문 → 응답 차례로 쌓는다 (지문과 응답을 동시에 볼 수 없게 됨)
   else if (d.layout === 'stemtop') {
-    inner = `<section class="i-q">${tags}${stem}${decorInQ}${decor}</section>` +
+    inner = top + `<section class="i-q">${tags}${stem}${decorInQ}${decor}</section>` +
             passageHtml + `<section class="i-q"><div class="i-body"></div></section>`;
   }
   // 한 단 세로: 발문 → 지문 → 응답. 응답 칸만 화면 아래에 붙어 늘 보인다 (발문은 스크롤되어 사라짐)
   else if (d.layout === 'stackpin') {
-    inner = `<section class="i-q-head">${tags}${stem}${decorInQ}${decor}</section>` +
+    inner = top + `<section class="i-q-head">${tags}${stem}${decorInQ}${decor}</section>` +
             passageHtml + `<section class="i-q i-q-pin"><div class="i-body"></div></section>`;
   }
-  else if (d.layout === 'far') inner = banner + q + '<div class="i-spacer" aria-hidden="true"></div>' + passageHtml;
-  else if (d.layout === 'popup') inner = banner + `<button type="button" class="i-open">지문 보기</button>` + q;
-  else inner = banner + `<div class="i-grid">${left}${q}</div>`;
+  else if (d.layout === 'far') inner = top + q + '<div class="i-spacer" aria-hidden="true"></div>' + passageHtml;
+  else if (d.layout === 'popup') inner = top + `<button type="button" class="i-open">지문 보기</button>` + q;
+  else inner = top + `<div class="i-grid">${left}${q}</div>`;
 
   const style = d.fontSize ? ` style="--ifs:${Number(d.fontSize)}px"` : '';
   const looks = (d.stemFaint ? ' stem-faint' : '') + (d.smallChoices ? ' small-choices' : '') +
