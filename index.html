@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>디지털 평가 문항 평정</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --app: #E7EBEF;
+    --panel: #FFFFFF;
+    --ink: #1E2530;
+    --muted: #5B6573;
+    --line: #D3D9E0;
+    --accent: #24467A;
+    --accent-soft: #E4EBF5;
+    --warn: #A33A2B;
+    --sans: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --serif: 'Noto Serif KR', 'AppleMyungjo', 'Batang', serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--app); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    word-break: keep-all; -webkit-text-size-adjust: 100%;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* ================= 앱 틀 (조사 화면) ================= */
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  .top { background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 24px 0; flex: none; }
+  .top-row { display: flex; align-items: baseline; gap: 16px; min-height: 28px; }
+  .app-title { font-weight: 700; font-size: 17px; }
+  .where { color: var(--muted); font-size: 15px; }
+  .count { margin-left: auto; font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+  /* 문항 번호 칩(.chip)은 손가락으로 누르는 버튼이라 크기(40px)는 그대로 두고, 위아래 여백만 줄였습니다. */
+  .chips { display: flex; gap: 8px; padding: 6px 0 8px; overflow-x: auto; }
+  .chip {
+    flex: none; width: 40px; height: 40px; border-radius: 50%;
+    border: 1.5px solid var(--line); background: var(--panel);
+    font-weight: 500; cursor: pointer; font-variant-numeric: tabular-nums;
+  }
+  .chip.done { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); }
+  .chip.cur { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .chip.missing { border-color: var(--warn); color: var(--warn); }
+  .bar { height: 4px; margin: 0 -24px; background: var(--line); }
+  .bar span { display: block; height: 100%; background: var(--accent); }
+  .top:not(:has(.chips)) .top-row { padding-bottom: 12px; }
+  .main { flex: 1; min-height: 0; overflow-y: auto; }
+  .bottom {
+    flex: none; background: var(--panel); border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; padding: 10px 24px; min-height: 64px;
+  }
+  .msg { color: var(--warn); font-size: 15px; flex: 1; }
+  .btn {
+    min-height: 48px; min-width: 120px; padding: 0 24px; border-radius: 8px;
+    border: 1.5px solid var(--line); background: var(--panel); font-weight: 500; cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; margin-left: auto; }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  .sheet { max-width: 760px; margin: 0 auto; padding: 36px 24px 56px; }
+  .sheet h1 { font-size: 24px; margin: 0 0 12px; }
+  .lead { color: var(--muted); margin: 0 0 24px; white-space: pre-line; }
+  .notice {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    padding: 14px 18px; margin: 0 0 28px; border-radius: 0 8px 8px 0; white-space: pre-line;
+  }
+  .field { border: 0; margin: 0 0 28px; padding: 0; min-width: 0; }
+  .field legend { font-weight: 700; margin-bottom: 12px; padding: 0; }
+  .field.missing legend { color: var(--warn); }
+  .opts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .opt {
+    min-height: 48px; padding: 0 20px; border-radius: 8px;
+    border: 1.5px solid var(--line); background: var(--panel); cursor: pointer; text-align: left;
+  }
+  .opts.col { flex-direction: column; }
+  .opts.col .opt { width: 100%; padding: 12px 18px; }
+  .opt.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  textarea {
+    width: 100%; font: inherit; padding: 12px 14px; border-radius: 8px;
+    border: 1.5px solid var(--line); background: var(--panel); resize: vertical;
+  }
+  .field.missing textarea { border-color: var(--warn); }
+  .code-input {
+    width: 100%; max-width: 280px; min-height: 52px; padding: 0 16px;
+    border-radius: 8px; border: 1.5px solid var(--line); background: var(--panel);
+    font: inherit; font-size: 20px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  }
+  .field.missing .code-input { border-color: var(--warn); }
+  .debrief { white-space: pre-line; }
+  .center { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); padding: 24px; text-align: center; }
+
+  /* ================= 평정 화면 ================= */
+  .rate { display: grid; grid-template-columns: minmax(0, 1fr) 420px; height: 100%; }
+  .stage { display: flex; flex-direction: column; gap: 6px; padding: 10px 18px 12px; min-height: 0; }
+  .stage-bar { display: flex; align-items: center; gap: 12px; flex: none; }
+  .stage-note { color: var(--muted); font-size: 13px; margin: 0; }
+  .stage-btn {
+    margin-left: auto; flex: none; min-height: 32px; padding: 0 14px;
+    border-radius: 8px; border: 1.5px solid var(--line); background: var(--panel);
+    font-size: 14px; cursor: pointer;
+  }
+  .stage-area { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .device {
+    background: #2A2F36; border-radius: 22px; padding: 14px;
+    box-shadow: 0 6px 24px rgba(20, 30, 45, .18);
+  }
+  /* 문항 화면: 고정 크기로 그린 뒤 통째로 확대·축소 (모든 평정자가 같은 배치를 봄) */
+  .screen { position: relative; overflow: hidden; background: #fff; border-radius: 10px; }
+  .canvas { position: absolute; top: 0; left: 0; transform-origin: top left; overflow: hidden; }
+  .screen-scroll { position: absolute; inset: 0; overflow-y: auto; container-type: inline-size; }
+
+  /* 전체 화면으로 키워 보기 */
+  body.fullscreen .device {
+    position: fixed; inset: 0; z-index: 900; border-radius: 0; padding: 0;
+    display: flex; align-items: center; justify-content: center; background: #1B1F25;
+  }
+  body.fullscreen .screen { border-radius: 0; }
+  #fsclose { display: none; }
+  body.fullscreen #fsclose {
+    display: block; position: fixed; z-index: 901; top: 16px; right: 16px;
+    min-height: 44px; padding: 0 18px; border-radius: 8px;
+    border: 0; background: rgba(255, 255, 255, .92); font-weight: 500; cursor: pointer;
+  }
+
+  /* 창이 좁을 때 안내 */
+  #narrow {
+    display: none; position: fixed; inset: 0; z-index: 1200; background: var(--app);
+    align-items: center; justify-content: center; padding: 28px; text-align: center;
+  }
+  body.narrow #narrow { display: flex; }
+  #narrow p { max-width: 24em; margin: 0; white-space: pre-line; line-height: 1.8; }
+
+  .panel { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 22px 22px 40px; }
+  .panel h2 { font-size: 18px; margin: 0 0 6px; }
+  .lock-note {
+    margin: 0 0 18px; padding: 10px 14px; border-radius: 8px;
+    background: #FFF4E5; color: #7A4A00; font-size: 15px;
+  }
+  .panel.open .lock-note { display: none; }
+  .panel.locked .rate-btn { opacity: .35; pointer-events: none; }
+  .rate-btn {
+    border: 1.5px solid var(--line); background: var(--panel); border-radius: 8px; cursor: pointer;
+  }
+  .rb-n { font-size: 17px; font-weight: 700; }
+  .rate-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .rate-btn.on .rb-t { color: var(--accent); }
+  .crit { border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 12px; margin: 0 0 14px; min-width: 0; }
+  .crit.missing { border-color: var(--warn); }
+  .crit legend { padding: 0 6px; margin-left: -6px; font-weight: 700; font-size: 16px; }
+  .crit.missing legend { color: var(--warn); }
+  .crit-def { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+  .crit-cue { color: var(--ink); font-size: 15px; font-weight: 600; }
+  .rb-t b { font-weight: 700; }
+  /* 준거를 하나씩 보여 주는 평정 칸 (SURVEY.stepCriteria) — 위쪽 요약 칸을 눌러 준거를 오감 */
+  .crit-steps { display: grid; grid-template-columns: repeat(var(--steps, 4), 1fr); gap: 6px; margin: 4px 0 14px; }
+  .crit-step {
+    border: 1.5px solid var(--line); background: var(--panel); border-radius: 8px; cursor: pointer;
+    padding: 6px 4px; font: inherit; font-size: 13px; line-height: 1.3; color: var(--muted); text-align: center;
+  }
+  .crit-step b { display: block; font-size: 17px; color: var(--ink); }
+  .crit-step.cur { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .crit-step.missing { border-color: var(--warn); color: var(--warn); }
+  .panel.locked .crit-step { opacity: .35; pointer-events: none; }
+  .crit[hidden] { display: none; }
+  .crit-opts { display: grid; gap: 6px; }
+  .crit-opts .rate-btn {
+    display: flex; gap: 10px; align-items: flex-start; text-align: left;
+    padding: 9px 12px; min-height: 44px;
+  }
+  .crit-opts .rb-n { flex: none; width: 1.4em; font-size: 16px; }
+  .rb-t { font-size: 14px; line-height: 1.5; color: var(--ink); }
+
+  /* ================= 문항 화면 (평정 대상) =================
+     아래 스타일은 '문항 자체의 화면 설계'입니다. 앱 틀과 분리되어 있습니다. */
+  .it {
+    /* 문항 화면의 기본 글자 크기.
+       1280×800 캔버스는 11인치 태블릿 화면을 본뜬 것이라, 이 화면에서 24px는
+       실제 태블릿에서 약 12.5pt로 보입니다(23px≈12pt, 27px≈14pt).
+       실제 평가 플랫폼이 보통 12~14pt로 문항을 제공하는 것에 맞춘 값입니다.
+       키우면 글자는 잘 보이지만 한 화면에 들어가는 내용이 줄어 스크롤이 생깁니다. */
+    --ifs: 24px;
+    position: relative; min-height: 100%;
+    padding: 28px 32px 48px;
+    font-family: var(--sans); font-size: var(--ifs); line-height: 1.75; color: #222;
+    background: #fff;
+  }
+  .it u { text-underline-offset: 4px; }
+  .i-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .lay-stack .i-grid { display: block; }
+
+  /* 지문 옆 + 지문 칸만 스크롤 (layout: 'sidefix')
+     실제 평가 플랫폼이 긴 지문을 다루는 방식입니다. 지문이 아무리 길어도
+     발문과 선택지는 자리에 그대로 있어서 지문과 견주며 답을 고를 수 있습니다.
+     화면 전체가 밀리는 'side'와 견주면 '통합 배치'가 좋아집니다.
+     캔버스가 고정 크기라 창 크기와 무관하게 모든 평정자에게 똑같이 보입니다. */
+  .lay-sidefix { height: 100%; display: flex; flex-direction: column; }
+  .lay-sidefix .i-grid { flex: 1; min-height: 0; align-items: stretch; }
+  .lay-sidefix .i-passage { overflow-y: auto; min-height: 0; }
+  .lay-sidefix .i-q { overflow-y: auto; min-height: 0; }
+  .lay-stack .i-passage { margin-bottom: 24px; }
+  .i-ptitle { font-weight: 700; margin-bottom: 8px; }
+  /* 지문 속 그림(도해). 들어갈 칸의 너비에 맞춰 그려지고, 너무 커지지 않게 높이를 묶어 둔다.
+     칸 너비는 문항 화면 안에서 고정이므로 모든 평정자에게 똑같은 크기로 보인다. */
+  /* max-width 를 두는 까닭: 지문 칸이 넓은 배치(지문 위)에서는 그림이 통째로 커져
+     글자만 유난히 크게 보이고, 좁은 배치(지문 옆)에서는 반대로 작아집니다.
+     위쪽을 묶어 두면 배치가 달라져도 그림 속 글자 크기가 크게 벌어지지 않습니다. */
+  .i-figure { margin: 0 0 16px; }
+  .i-figure svg { display: block; width: 100%; max-width: 900px; height: auto; max-height: 480px; }
+  /* 지문은 양쪽 정렬 — 오른쪽 끝이 들쭉날쭉하지 않게.
+     어절 단위로 줄을 바꾸면 칸이 좁아(한 줄 19자 안팎) 단어 사이가 크게 벌어지므로,
+     교과서처럼 음절 단위로 줄을 바꿔 줄마다 고르게 채운다. */
+  .i-ptext { font-family: var(--serif); text-align: justify; word-break: break-all; }
+  /* 문단 — 문단 사이에 빈 줄을 두지 않고(줄 간격 그대로), 첫 줄을 한 글자 들여 써서 문단을 나눈다.
+     국어 교과서·평가지의 관례이고, 문단 번호 없이도 "2문단"을 셀 수 있게 하려는 것이다. */
+  .i-para { margin: 0; text-indent: 1em; }
+  /* 글 제목 — 지시문(.i-ptitle) 아래, 본문 위 */
+  .i-phead { font-family: var(--serif); font-weight: 700; margin-bottom: 10px; }
+  /* 문단 번호 (design.paraNums) — 지금은 쓰는 곳 없음.
+     같은 글이 화면마다 번호가 있다 없다 하면 그 자체가 명료성 차이가 되므로, 쓰려면 모든 화면에 켜야 한다. */
+  .i-ptext.numbered .i-para { text-indent: 0; }
+  .i-pnum {
+    display: inline-block; min-width: 1.6em; margin-right: 4px;
+    font-family: var(--sans); font-size: .62em; color: #777; vertical-align: 2px;
+  }
+  /* 지문 속에서 눌러 고르는 박스 (boxIn: 'passage')
+     줄 가운데에서 줄바꿈되어야 하므로 inline 으로 두고 테두리를 잘라 이어 그린다 */
+  /* 지문 속 문장 표시 (item.marks) — ㉠ 기호와 밑줄. 원본·변형 모두 같다 */
+  .i-smark-k { font-family: var(--sans); font-weight: 400; margin-right: 2px; }
+  .i-smark u { text-underline-offset: 5px; }
+  .i-pbox {
+    display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone;
+    font: inherit; color: inherit; line-height: inherit; text-align: left;
+    padding: 1px 5px; margin: 0 1px; border: 2px solid #CDD3DA; border-radius: 7px;
+    background: #fff; cursor: pointer;
+  }
+  .i-pbox.on { border-color: #2E6BD6; background: #EAF1FC; }
+  .i-stem { margin: 0 0 18px; }
+  /* 발문을 문항 영역에서 빼내어 화면 맨 위 전체 폭 띠에 놓는다 (design.stemBanner)
+     화면이 아래로 밀리는 배치(stack)에서도 띠는 맨 위에 붙어 있어 발문만은 늘 보인다. */
+  .i-stem-banner {
+    position: sticky; top: 0; z-index: 3;
+    margin: -28px -32px 22px; padding: 14px 32px;
+    background: #F1F4F8; border-bottom: 1px solid #DDE3EA;
+  }
+  /* 한 단 세로 배치 (layout: 'stemtop') — 발문 → 지문 → 응답 순으로 쌓인다 */
+  .lay-stemtop .i-passage { margin: 0 0 24px; }
+  /* 풀이에 필요 없는 그림 (design.decorSvg) */
+  .i-decor-fig { margin: 4px 0 18px; }
+  .i-decor-fig svg { display: block; width: 100%; height: auto; }
+  /* 그림 속 깜빡이는 별(.tw)과 위아래로 움직이는 캐릭터(.bob) — 두 문항이 같은 움직임을 쓰도록 여기 한 곳에 둔다 */
+  @keyframes i-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
+  @keyframes i-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .i-decor-fig .tw { animation: i-twinkle 1.1s ease-in-out infinite; }
+  .i-decor-fig .tw2 { animation-delay: .35s; }
+  .i-decor-fig .tw3 { animation-delay: .7s; }
+  .i-decor-fig .bob { animation: i-bob 1.6s ease-in-out infinite; }
+  /* 그림을 지문 칸 위쪽에 크게 둔다 (design.decorAt: 'passage')
+     그림은 제자리에 있고 그 아래 지문 칸만 스크롤된다. 문항 칸(발문·응답)은 기본 틀 그대로라
+     그림 때문에 응답이 화면 밖으로 밀려나지 않는다(통합 배치를 건드리지 않음). */
+  .i-leftcol { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: hidden; }
+  .i-leftcol .i-decor-fig { flex: none; margin: 0; }
+  .i-leftcol .i-passage { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  .i-spacer { height: 820px; }
+  .i-open {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0 0 16px;
+    padding: 8px 14px; border-radius: 8px; border: 1.5px solid #999; background: #fff; cursor: pointer;
+  }
+  .i-pop { position: absolute; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 5; }
+  .i-pop[hidden] { display: none; }
+  .i-pop-card { background: #fff; border-radius: 12px; max-width: 760px; max-height: 100%; overflow-y: auto; padding: 18px 22px 24px; font-size: var(--ifs, 24px); line-height: 1.75; }
+  .i-close { display: block; margin: 0 0 10px auto; border: 0; background: #eee; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+
+  /* 응답 요소 공통 */
+  .i-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .i-choice {
+    width: 100%; display: flex; gap: 12px; align-items: flex-start; text-align: left;
+    padding: 11px 16px; min-height: 50px; border-radius: 8px;
+    border: 1.5px solid #CDD3DA; background: #fff; cursor: pointer; font-size: inherit; line-height: 1.6;
+  }
+  .i-mark { flex: none; font-weight: 700; }
+  .i-choice.on { border-color: #2E6BD6; background: #EAF1FC; }
+  .i-choice.on .i-mark { color: #2E6BD6; }
+  .i-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .i-box {
+    min-height: 76px; padding: 14px 16px; border-radius: 12px; border: 2px solid #CDD3DA;
+    background: #fff; cursor: pointer; text-align: left; font-size: inherit; line-height: 1.55;
+  }
+  .i-box.on { border-color: #2E6BD6; background: #EAF1FC; }
+  .i-hint { font-size: .85em; color: #666; margin: -8px 0 12px; }
+
+  .i-bank {
+    display: flex; flex-wrap: wrap; gap: 10px; min-height: 64px; padding: 12px;
+    border: 2px dashed #CDD3DA; border-radius: 12px; margin-bottom: 16px;
+  }
+  .i-bins { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .i-bin { border: 2px solid #CDD3DA; border-radius: 12px; overflow: hidden; }
+  .i-bin-label { background: #F1F4F8; padding: 8px 12px; font-weight: 700; }
+  .i-bin-drop { display: flex; flex-wrap: wrap; gap: 8px; min-height: 64px; padding: 10px; align-content: flex-start; }
+  /* 세로 흐름도 (drag 문항의 flow) — 고정 칸과 카드 놓는 빈칸을 화살표로 잇는다.
+     빈칸은 이름표(㉮)를 왼쪽에 붙인 한 줄로 그려 세로 높이를 아낀다. */
+  .i-flow { display: grid; gap: 0; }
+  .i-flow-arrow { text-align: center; color: #8A93A0; font-size: .8em; line-height: 1.1; padding: 2px 0; }
+  .i-flow-fix {
+    border: 2px solid #CDD3DA; border-radius: 10px; background: #F1F4F8;
+    padding: 5px 12px; text-align: center;
+  }
+  .i-flow .i-bin { display: flex; align-items: stretch; }
+  .i-flow .i-bin-label { display: flex; align-items: center; flex: none; padding: 4px 12px; }
+  .i-flow .i-bin-drop { flex: 1; min-height: 48px; align-content: center; }
+  .i-bank.hot, .i-bin.hot { border-color: #2E6BD6; background: #F4F8FE; }
+  .sel-mode .i-bin, .sel-mode .i-bank { border-color: #8FB0E8; }
+  .i-chip {
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    padding: 8px 14px; border-radius: 999px; border: 1.5px solid #9AA6B5; background: #fff;
+    cursor: grab; font-size: inherit; line-height: 1.4; text-align: left;
+  }
+  .i-chip.sel { border-color: #2E6BD6; background: #EAF1FC; box-shadow: 0 0 0 3px rgba(46, 107, 214, .25); }
+  .i-chip.dragging { opacity: .35; }
+  .ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -50%) rotate(-2deg); box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+  .i-tools { display: flex; justify-content: flex-end; margin-top: 12px; }
+  /* 카드를 옮길 때마다 뜨는 확인 창 (design.confirmEach, C4 시험용). 문항 칸 위에만 뜨고 지문은 가리지 않음 */
+  .i-confirm-cover { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; }
+  .i-confirm { background: #fff; border: 1px solid #C9CFD6; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+               padding: 20px 22px 16px; width: 380px; font-size: 20px; line-height: 1.5; }
+  .i-confirm p { margin: 0 0 16px; }
+  .i-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .i-confirm-btns button { font: inherit; font-size: 18px; padding: 6px 18px; border-radius: 8px; border: 1px solid #bbb; background: #fff; cursor: pointer; }
+  .i-confirm-btns .ok { background: #2E6BD6; border-color: #2E6BD6; color: #fff; }
+  .i-reset { border: 1px solid #bbb; background: #fff; border-radius: 6px; padding: 5px 12px; font-size: 14px; cursor: pointer; }
+
+  .i-match { position: relative; display: grid; grid-template-columns: 1fr 1fr; column-gap: 72px; row-gap: 12px; }
+  .i-col { display: grid; gap: 12px; align-content: start; }
+  .i-node {
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    position: relative; display: flex; align-items: center; gap: 10px;
+    min-height: 56px; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #CDD3DA; background: #fff;
+    cursor: pointer; text-align: left; font-size: inherit; line-height: 1.5;
+  }
+  /* 점은 이어야 할 상대 쪽(가운데)을 보도록 안쪽 가장자리에 둔다 — 왼쪽 칸은 오른쪽 끝, 오른쪽 칸은 기본값(왼쪽 끝) */
+  .i-col.left .i-dot { order: 1; }
+  /* 칸 안의 글자는 가운데 정렬 — 점은 칸 가장자리에 두고, 남은 자리 가운데에 글자를 놓는다 */
+  .i-node > span:not(.i-dot) { flex: 1; text-align: center; }
+  .i-dot { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #555; background: #fff; }
+  .i-node.linked .i-dot { background: #2E6BD6; border-color: #2E6BD6; }
+  .i-node.pending { border-color: #2E6BD6; box-shadow: 0 0 0 3px rgba(46, 107, 214, .25); }
+  .i-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .i-lines line { stroke: #2E6BD6; stroke-width: 3; stroke-linecap: round; }
+  .i-lines line.hit { stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: pointer; }
+  .i-lines line.tmp { stroke-dasharray: 6 6; }
+
+  /* 위계: 뚜렷함 */
+  .hier-clear .i-passage { background: #F7F7F2; border: 1px solid #E3E3DA; border-radius: 10px; padding: 18px 20px; }
+  .hier-clear .i-stem { font-weight: 700; font-size: 1.06em; }
+  /* 위계: 흐림 */
+  .hier-flat { line-height: 1.45; padding: 16px 18px 40px; }
+  .hier-flat .i-ptitle, .hier-flat .i-stem { font-weight: 400; margin-bottom: 4px; }
+  .hier-flat .i-ptext { font-family: var(--sans); }
+  .hier-flat .i-passage { margin-bottom: 6px; }
+  .hier-flat .i-choices { gap: 2px; }
+  .hier-flat .i-choice, .hier-flat .i-box, .hier-flat .i-node { border-color: transparent; padding: 4px 6px; min-height: 0; }
+  .hier-flat .i-boxes { gap: 4px; }
+  .hier-flat .i-bin-label { font-weight: 400; background: transparent; }
+
+  /* ── 시각적 명료성(C2)을 낮추는 모양들. 배치는 건드리지 않는다 ── */
+
+  /* 발문만 작고 흐리게 (design.stemFaint)
+     발문이 먼저 눈에 들어오지 않는다. 나머지 글자·배치는 기본 틀 그대로.
+     18px ≈ 태블릿에서 약 9.4pt, #909090 은 흰 바탕과의 대비가 약 3.2:1 (보통 글자 권장값 4.5:1보다 낮음) */
+  .it.stem-faint .i-stem { font-weight: 400; font-size: 18px; color: #909090; }
+
+  /* 선택지만 작고 촘촘하게 (design.smallChoices)
+     발문·지문은 기본 틀 그대로이고, 선택지를 읽을 때만 주의를 기울여야 한다.
+     16px ≈ 태블릿에서 약 8.3pt */
+  .it.small-choices .i-choices { gap: 4px; }
+  .it.small-choices .i-choice { font-size: 16px; line-height: 1.35; color: #666; min-height: 0; padding: 6px 12px; gap: 8px; }
+
+  /* 칸 구분 없이 한 덩어리 글처럼 (design.noBorders)
+     지문 상자·잇기 칸 테두리·발문 굵기를 모두 없애고 지문과 같은 글꼴로 맞춘다.
+     글자 크기와 색, 잇기 칸의 크기·간격은 기본 틀 그대로라 읽고 조작할 수는 있지만, 어디까지가 지문이고 어디부터가
+     문제·응답인지 경계가 흐리다. 좌우 배치는 기본 틀 그대로. */
+  .it.no-borders .i-passage { background: transparent; border: 0; border-radius: 0; padding: 0; }
+  .it.no-borders .i-ptitle, .it.no-borders .i-phead { font-weight: 400; margin-bottom: 0; }
+  .it.no-borders .i-stem { font-family: var(--serif); font-weight: 400; font-size: 1em; margin-bottom: 0; }
+  /* 잇기 칸의 크기·간격·연결점과 좌우 칸 너비는 원본과 똑같이 둔다 — 줄이면 명료성이 아니라 조작 난이도가
+     달라진다. 테두리를 없애고 글꼴만 지문과 같은 명조로 바꿔, 지문과 응답이 한 덩어리처럼 보이게 한다. */
+  .it.no-borders .i-node { font-family: var(--serif); border-color: transparent; background: transparent; color: inherit; }
+  .it.no-borders .i-reset { border-color: transparent; background: transparent; color: #666; }
+
+  /* 지문을 흐릿하게 캡처한 이미지처럼 (design.scanPassage)
+     실제 플랫폼에서 종이 지문을 사진·캡처로 올렸을 때처럼 작고 번진 글자로 보인다.
+     지문만 해당하고, 발문·응답은 기본 틀 그대로. 14px ≈ 태블릿에서 약 7.3pt에 번짐까지 더해진다. */
+  .it.scan-passage .i-passage { background: #EFEDE4; border-color: #D8D5C8; border-radius: 2px; padding: 12px 14px; }
+  .it.scan-passage .i-passage > * { filter: blur(1.1px); }
+  .it.scan-passage .i-ptitle, .it.scan-passage .i-phead, .it.scan-passage .i-ptext {
+    font-size: 14px; line-height: 1.45; color: #555; letter-spacing: -0.3px;
+  }
+
+  /* 선택지를 화면 맨 아래에 붙여 두는 한 단 배치 (layout: 'stackpin')
+     발문 → 지문 → 선택지 차례로 쌓되, 선택지 칸은 화면 아래에 붙어 늘 보인다.
+     지문을 읽으려고 내리면 발문은 위로 사라진다(선택지만 남음). */
+  .lay-stackpin .i-passage { margin: 0 0 24px; }
+  .lay-stackpin .i-q-pin {
+    position: sticky; bottom: 0; z-index: 3;
+    margin: 0 -32px; padding: 14px 32px 16px;
+    background: #fff; border-top: 1px solid #DDE3EA; box-shadow: 0 -6px 14px rgba(0, 0, 0, .06);
+  }
+
+  /* 장식 */
+  /* 발문과 자료(낱말·선택지) 사이에 끼워 넣는, 풀이와 상관없는 꾸밈 그림 (design.decor: 'kid') */
+  .i-decor { display: flex; align-items: center; gap: 12px; margin: 4px 0 20px; }
+  .i-decor svg { flex: none; width: 64px; height: 64px; }
+  .i-decor-bubble {
+    position: relative; padding: 10px 16px; border-radius: 14px;
+    background: #FFF3D6; border: 1.5px solid #F4D58A; font-size: .85em; color: #6B4E12;
+  }
+  .i-decor-bubble::before {
+    content: ''; position: absolute; left: -8px; top: 50%; margin-top: -6px;
+    border: 6px solid transparent; border-right-color: #F4D58A;
+  }
+  .hier-flat .i-decor { margin: 2px 0 10px; }
+  .i-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .i-tags span { padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #fff; }
+  .i-tags .t1 { background: #E53935; } .i-tags .t2 { background: #8E24AA; } .i-tags .t3 { background: #43A047; }
+  .stk { position: absolute; font-size: 30px; pointer-events: none; opacity: .9; }
+  .stk.s1 { top: 58px; right: 20px; } .stk.s2 { bottom: 18px; left: 16px; } .stk.s3 { top: 45%; right: 8px; }
+  .clut-2 { background: #fff repeating-linear-gradient(45deg, #FFF8E1 0 14px, #fff 14px 28px); }
+  .clut-2 li:nth-child(4n+1) .i-choice { border-color: #F48FB1; }
+  .clut-2 li:nth-child(4n+2) .i-choice { border-color: #81D4FA; }
+  .clut-2 li:nth-child(4n+3) .i-choice { border-color: #A5D6A7; }
+  .clut-2 li:nth-child(4n+4) .i-choice { border-color: #FFCC80; }
+  .clut-2 .i-box:nth-child(odd) { background: #FFF3E0; }
+  .clut-2 .i-box:nth-child(even) { background: #E8F5E9; }
+  .clut-2 .i-chip:nth-child(odd) { background: #FCE4EC; }
+  .clut-2 .i-chip:nth-child(even) { background: #E3F2FD; }
+
+  /* ---------- 평가 플랫폼 틀 ----------
+     실제 에듀테크 평가 화면처럼 위쪽 띠와 오른쪽 문제 번호 칸을 문항 바깥에 두릅니다.
+     교사가 실제와 비슷한 조건에서 평정하도록 하기 위한 것이고, 모든 문항에 똑같이
+     그려집니다. 눌러도 아무 일이 일어나지 않는 그림입니다(pointer-events: none).
+     문항이 들어갈 자리는 .i-plat-main 이고, 오른쪽 칸이 넓어질수록 좁아집니다. */
+  .i-plat { position: absolute; inset: 0; display: flex; flex-direction: column; background: #E8ECF1; }
+  .i-plat-top {
+    flex: none; display: flex; align-items: center; gap: 12px;
+    height: 56px; padding: 0 18px; background: #fff; border-bottom: 1px solid #D5DBE3;
+    pointer-events: none;
+  }
+  .i-plat-sub { flex: none; padding: 5px 14px; border-radius: 999px; background: #2E6BD6; color: #fff; font-weight: 700; font-size: 16px; }
+  .i-plat-title { font-size: 16px; color: #333; }
+  .i-plat-tools { margin-left: auto; display: flex; gap: 8px; }
+  .i-plat-tool { padding: 6px 12px; border-radius: 8px; border: 1px solid #C9D0D9; background: #F5F7FA; font-size: 14px; color: #555; }
+  .i-plat-body { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; }
+  .i-plat-main { flex: 1; min-width: 0; position: relative; background: #fff; border-radius: 12px; overflow: hidden; }
+  .i-plat-side {
+    flex: none; width: var(--iside, 232px); background: #fff; border-radius: 12px;
+    padding: 14px 14px 16px; display: flex; flex-direction: column; gap: 12px; pointer-events: none;
+  }
+  .i-plat-side-t { font-weight: 700; font-size: 16px; color: #333; }
+  .i-plat-nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .i-plat-num {
+    display: flex; align-items: center; justify-content: center; height: 40px;
+    border-radius: 8px; border: 1.5px solid #D5DBE3; background: #F7F9FB; font-size: 16px; color: #555;
+  }
+  .i-plat-num.on { border-color: #2E6BD6; background: #2E6BD6; color: #fff; font-weight: 700; }
+  .i-plat-act {
+    margin-top: auto; text-align: center; padding: 12px 0; border-radius: 10px;
+    background: #2E6BD6; color: #fff; font-weight: 700; font-size: 17px;
+  }
+  .i-plat-nav {
+    flex: none; display: flex; justify-content: space-between; align-items: center;
+    height: 34px; padding: 0 20px 6px; color: #98A2AE; font-size: 26px; line-height: 1; pointer-events: none;
+  }
+
+  /* 문항 화면이 좁을 때(세로 태블릿 등) */
+  @container (max-width: 640px) {
+    .it { padding: 20px 18px 40px; }
+    .i-grid { display: block; }
+    .i-grid .i-passage { margin-bottom: 20px; }
+    .i-boxes { grid-template-columns: 1fr; }
+    .i-match { column-gap: 40px; }
+  }
+
+  /* ================= 좁은 화면 ================= */
+  @media (max-width: 980px) {
+    .rate { display: block; height: auto; }
+    .stage { padding: 12px; }
+    .stage-area { min-height: 62vh; }
+    .panel { border-left: 0; border-top: 1px solid var(--line); }
+  }
+  @media (max-width: 820px) {
+    .top { padding: 10px 16px 0; }
+    .bar { margin: 0 -16px; }
+    .bottom { padding: 10px 16px; }
+    .where { display: none; }
+    .btn { min-width: 96px; }
+  }
+</style>
+</head>
+<body>
+<div id="app" data-preview="" data-form=""><div class="center">불러오는 중입니다</div></div>
+<button type="button" id="fsclose">전체 화면 닫기 ✕</button>
+<div id="narrow"><p></p></div>
+
+<script>
+const PREVIEW = new URLSearchParams(location.search).get('preview') ? '1' : (document.getElementById('app').dataset.preview || '');
+// 미리보기에서 고른 검사지(A·B, 주소 끝 &form=B). 실제 참여자는 비어 있고, 검사지는 참여 코드가 정합니다.
+const FORM = (q => (PREVIEW && ['A', 'B'].indexOf(q) >= 0 ? q : ''))(new URLSearchParams(location.search).get('form') || document.getElementById('app').dataset.form);
+// 서버(앱스크립트) 주소와 도구 판. npm run build:web 이 Code.gs의 STUDY에서 읽어 채웁니다. 직접 고치지 마세요.
+const SERVER = {"url":"https://script.google.com/macros/s/AKfycbyNy5FZc8_bwkT0knZWVMoC5fBHyTvCW-9uTfU1WD1leMMHB3qF4QZJW29csodM-BNt/exec","toolVersion":"파일럿-1"};
+const CIRC = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
+const app = document.getElementById('app');
+
+let S = null;   // 연구 설정
+let R = null;   // 응답 기록
+let activeTimer = null;
+
+// ---------- 서버 부르기 ----------
+// 화면은 GitHub Pages에서 열리므로 앱스크립트 함수를 웹 요청(fetch)으로 부릅니다.
+// 'text/plain'으로 보내는 까닭: JSON이라고 밝히면 브라우저가 사전 확인 요청을 먼저 보내는데,
+// 앱스크립트는 거기에 답하지 못해 요청이 막힙니다.
+// 미리보기 파일에서는 tools/mock-server.js 가 window.__mockServer 로 이 자리를 대신합니다.
+function callServer(fn, args) {
+  if (window.__mockServer) return window.__mockServer(fn, args);
+  return fetch(SERVER.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args, toolVersion: SERVER.toolVersion })
+  })
+    .then(r => r.json())
+    .then(res => { if (res.error) throw new Error(res.error); return res.result; });
+}
+
+// 화면 파일과 서버의 도구 판이 다르면 진행을 막는다 (한쪽만 새로 올렸거나, 옛 화면이 브라우저에 남은 경우)
+function isVersionError(err) {
+  if (!err || err.message !== 'version') return false;
+  app.innerHTML = '<div class="center">조사 화면이 새로 바뀌었습니다. 새로고침한 뒤 다시 시작해 주세요.</div>';
+  return true;
+}
+
+// ---------- 공통 도구 ----------
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// 연구자가 입력한 문구: <u>, <b>, <br>만 허용
+function rich(s) {
+  return esc(s).replace(/&lt;(\/?)(u|b|br)\s*\/?&gt;/g, '<$1$2>');
+}
+// 연구자가 Code.gs에 적어 둔 그림(SVG)만 그대로 그린다.
+// <svg>로 시작하지 않거나 스크립트·이벤트가 섞여 있으면 통째로 버린다(빈 문자열).
+function svgOnly(s) {
+  const v = String(s || '').trim();
+  if (!/^<svg[\s>]/i.test(v) || !/<\/svg>$/i.test(v)) return '';
+  if (/<script|javascript:|\son[a-z]+\s*=/i.test(v)) return '';
+  return v;
+}
+function now() { return performance.now(); }
+function surveyDef() { return S.survey; }
+
+// ---------- 문항 화면 크기 맞추기 ----------
+// 문항은 늘 같은 고정 크기(기본 1024×768)로 그리고, 창에 맞춰 통째로 확대·축소만 한다.
+// 그래야 모니터 크기와 상관없이 모든 평정자가 완전히 같은 배치를 본다.
+let SCALE = 1;
+
+function fitScreen() {
+  const screen = document.getElementById('screen');
+  const canvas = screen && screen.querySelector('.canvas');
+  const area = document.getElementById('stagearea');
+  if (!screen || !canvas || !area) return;
+
+  const CW = S.study.screen.width, CH = S.study.screen.height;
+  const full = document.body.classList.contains('fullscreen');
+  // 아래 20px는 문항 화면(기기 테두리)이 창 가장자리에 딱 붙지 않게 두는 여백입니다.
+  // 더 줄이면 문항이 더 크게(확대율이 높게) 보이지만, 너무 줄이면 스크롤바 등과 겹칠 수 있습니다.
+  const aw = (full ? window.innerWidth : area.clientWidth) - (full ? 8 : 20);
+  const ah = (full ? window.innerHeight : area.clientHeight) - (full ? 8 : 20);
+  const s = Math.max(0.3, Math.min(aw / CW, ah / CH, 1.8));
+
+  SCALE = s;
+  canvas.style.width = CW + 'px';
+  canvas.style.height = CH + 'px';
+  canvas.style.transform = 'scale(' + s + ')';
+  screen.style.width = Math.round(CW * s) + 'px';
+  screen.style.height = Math.round(CH * s) + 'px';
+  if (!full) updateGuard(s);
+  window.dispatchEvent(new Event('screenfit'));
+}
+
+function toggleFullscreen(on) {
+  document.body.classList.toggle('fullscreen', on);
+  fitScreen();
+}
+
+// 창이 작아 문항이 지나치게 줄어들면 진행을 막고 안내
+function updateGuard(scale) {
+  if (!S) return;
+  const minW = S.study.minWindowWidth || 0;
+  const minS = S.study.minScale || 0;
+  const tooNarrow = window.innerWidth < minW || (scale != null && scale < minS);
+  document.body.classList.toggle('narrow', tooNarrow);
+  if (tooNarrow) {
+    document.querySelector('#narrow p').textContent =
+      '이 조사는 문항 화면을 있는 그대로 보셔야 하므로 화면이 넓은 기기가 필요합니다.\n\n' +
+      'PC나 노트북에서 열어 주시거나, 창을 최대로 넓혀 주세요.\n' +
+      '창을 넓히시면 이 안내는 저절로 사라지고, 하던 곳에서 이어서 하실 수 있습니다.';
+    if (document.body.classList.contains('fullscreen')) document.body.classList.remove('fullscreen');
+  }
+}
+
+function checkWidth() { updateGuard(null); }
+
+window.addEventListener('resize', () => { checkWidth(); fitScreen(); });
+document.getElementById('fsclose').addEventListener('click', () => toggleFullscreen(false));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('fullscreen')) toggleFullscreen(false);
+});
+
+function shell({ where = '', count = '', chips = '', progress = 0, body = '', footer = '' }) {
+  app.innerHTML =
+    `<header class="top">
+       <div class="top-row">
+         <span class="app-title">${esc(S.study.title)}</span>
+         <span class="where">${esc(where)}</span>
+         <span class="count">${esc(count)}</span>
+       </div>
+       ${chips}
+       <div class="bar"><span style="width:${progress}%"></span></div>
+     </header>
+     <main class="main" id="main">${body}</main>
+     <footer class="bottom">${footer}</footer>`;
+}
+
+// ---------- 시작 ----------
+callServer('getStudy', []).then(
+  s => { S = s; checkWidth(); renderConsent(); },
+  err => {
+    if (isVersionError(err)) return;
+    app.innerHTML = '<div class="center">화면을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해 주세요.</div>';
+  });
+
+window.addEventListener('beforeunload', e => {
+  if (R && !R.finishedAt) { e.preventDefault(); e.returnValue = ''; }
+});
+document.addEventListener('visibilitychange', () => {
+  if (!activeTimer) return;
+  if (document.hidden) activeTimer.pause(); else activeTimer.resume();
+});
+
+// ---------- 설문형 화면 공통 ----------
+function formPage({ progress = 0, heading, lead = '', notice = '', fields, nextLabel = '다음', onNext }) {
+  const vals = {};
+  fields.forEach(f => { vals[f.name] = f.type === 'text' || f.type === 'code' ? '' : null; });
+
+  const fieldHtml = fields.map(f => {
+    if (f.type === 'choice') {
+      return `<fieldset class="field" data-field="${f.name}">
+        <legend>${esc(f.label)}</legend>
+        <div class="opts ${f.column ? 'col' : ''}">
+          ${f.choices.map((c, i) => `<button type="button" class="opt" aria-pressed="false" data-field="${f.name}" data-v="${i}">${esc(c)}</button>`).join('')}
+        </div></fieldset>`;
+    }
+    if (f.type === 'code') {
+      return `<fieldset class="field" data-field="${f.name}"><legend>${esc(f.label)}</legend>
+        <input type="text" class="code-input" data-field="${f.name}" maxlength="12"
+          autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="예: K7P3QX"></fieldset>`;
+    }
+    return `<fieldset class="field" data-field="${f.name}"><legend>${esc(f.label)}</legend>
+      <textarea data-field="${f.name}" rows="4"></textarea></fieldset>`;
+  }).join('');
+
+  shell({
+    progress,
+    body: `<section class="sheet">
+      <h1>${esc(heading)}</h1>
+      ${lead ? `<p class="lead">${esc(lead)}</p>` : ''}
+      ${notice ? `<p class="notice">${esc(notice)}</p>` : ''}
+      ${fieldHtml}
+    </section>`,
+    footer: `<span class="msg" id="msg" role="alert"></span><button class="btn primary" id="next">${esc(nextLabel)}</button>`
+  });
+
+  app.oninput = e => { if (e.target.dataset.field) vals[e.target.dataset.field] = e.target.value; };
+  app.onclick = e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.classList.contains('opt')) {
+      b.parentElement.querySelectorAll('button').forEach(x => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-pressed', x === b);
+      });
+      vals[b.dataset.field] = Number(b.dataset.v);
+      b.closest('fieldset').classList.remove('missing');
+      return;
+    }
+    if (b.id === 'next') {
+      let firstMissing = null;
+      fields.forEach(f => {
+        if (!f.required) return;
+        const fs = app.querySelector(`fieldset[data-field="${f.name}"]`);
+        const miss = f.type === 'choice' ? vals[f.name] === null : !String(vals[f.name]).trim();
+        fs.classList.toggle('missing', miss);
+        if (miss && !firstMissing) firstMissing = fs;
+      });
+      if (firstMissing) {
+        document.getElementById('msg').textContent = '빨간색으로 표시된 질문에 응답해 주세요.';
+        firstMissing.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      onNext(vals);
+    }
+  };
+}
+
+// ---------- 1. 동의 ----------
+function renderConsent() {
+  formPage({
+    heading: S.study.title,
+    lead: S.study.intro,
+    notice: S.study.deviceNote,
+    fields: [
+      { type: 'choice', name: 'consent', label: '연구 참여에 동의하십니까?', choices: ['동의합니다', '동의하지 않습니다'], required: true }
+    ].concat(PREVIEW ? [] : [
+      { type: 'code', name: 'code', label: '안내받으신 참여 코드를 입력해 주세요.' }
+    ]),
+    nextLabel: '시작하기',
+    onNext: v => {
+      if (v.consent === 1) {
+        shell({ body: '<div class="center">참여하지 않기로 하셨습니다. 이 창을 닫으셔도 됩니다.</div>' });
+        return;
+      }
+      const msg = document.getElementById('msg');
+      const code = String(v.code || '').toUpperCase().replace(/\s/g, '');
+      const codeField = app.querySelector('fieldset[data-field="code"]');
+      if (!PREVIEW && !code) {
+        codeField.classList.add('missing');
+        msg.textContent = '참여 코드를 입력해 주세요.';
+        return;
+      }
+      const btn = document.getElementById('next');
+      btn.disabled = true; btn.textContent = '확인 중';
+      callServer('assignParticipant', [PREVIEW, code, FORM]).then(
+        a => {
+          if (a.ok) { startStudy(a); return; }
+          btn.disabled = false; btn.textContent = '시작하기';
+          if (codeField) codeField.classList.add('missing');
+          msg.textContent = a.reason === 'done'
+            ? '이미 참여를 마친 코드입니다. 연구자에게 문의해 주세요.'
+            : '참여 코드를 다시 확인해 주세요.';
+        },
+        err => {
+          if (isVersionError(err)) return;
+          btn.disabled = false; btn.textContent = '시작하기';
+          msg.textContent = '연결에 실패했습니다. 다시 눌러 주세요.';
+        });
+    }
+  });
+}
+
+function startStudy(a) {
+  // 문항은 참여 코드를 확인한 뒤 그 사람의 검사지 것만 받는다 (다른 검사지의 짝 화면은 받지 않음)
+  if (a.items) S.items = a.items;
+  const byId = {};
+  S.items.forEach(it => { byId[it.id] = it; });
+  const order = a.order.filter(id => byId[id]);
+  R = {
+    pid: a.pid, code: a.code, form: a.form || '', test: a.test, assignedAt: a.assignedAt, order: order,
+    startedAt: new Date().toISOString(), finishedAt: null,
+    device: { width: window.innerWidth, height: window.innerHeight, ua: navigator.userAgent },
+    demo: {}, final: {},
+    items: order.map((id, i) => ({
+      id: id, pos: i + 1, response: null,
+      visibleMs: 0, visits: 0, firstInteractMs: null, interactions: 0, passageOpens: 0,
+      failedTries: 0,       // 응답이 바뀌지 않은 조작 시도 (조작 흠 변형에서 빗나간 끌기·누르기 등)
+      // 풀이 시간과 평정 시간을 가르는 기록. 모두 '이 문항 화면을 본 시간' 기준(다른 문항에 가 있던 시간은 뺌)
+      solveMs: null,        // 첫 평정 전 마지막 조작까지 = 풀이 시간
+      firstRatingMs: null,  // 첫 평정 버튼을 누를 때까지
+      lastRatingMs: null,   // 마지막으로 평정 버튼을 누를 때까지 (평정 시간 ≈ 이 값 − 풀이 시간)
+      lateInteractions: 0,  // 평정을 시작한 뒤에 다시 조작한 횟수 (많으면 풀이 시간을 조심해서 읽을 것)
+      ratings: {}, ratingChanges: 0, comment: ''
+    }))
+  };
+  renderGuide();
+}
+
+// ---------- 2. 안내 ----------
+function renderGuide() {
+  const P = surveyDef();
+  shell({
+    progress: 3,
+    body: `<section class="sheet">
+      <h1>시작하기 전에</h1>
+      <p class="lead">${esc(P.guide)}</p>
+      <p class="notice">문항 화면은 학생이 보는 화면 그대로입니다. 끌어 놓기나 선 잇기 문항은 손가락이나 마우스로 직접 조작해 보세요.
+${S.study.requireInteraction ? '문항을 한 번 이상 풀어 보셔야 평정 버튼이 열립니다.' : ''}
+문항이 작게 느껴지시면 문항 위의 [전체 화면으로 보기]를 눌러 크게 보실 수 있습니다.
+위쪽의 번호를 눌러 다른 문항으로 이동할 수 있습니다.</p>
+    </section>`,
+    footer: `<button class="btn primary" id="next">다음</button>`
+  });
+  app.oninput = null;
+  app.onclick = e => { if (e.target.closest('#next')) renderDemo(); };
+}
+
+// ---------- 3. 기본 정보 ----------
+function renderDemo() {
+  formPage({
+    progress: 6,
+    heading: '기본 정보',
+    fields: S.demo.map(d => ({ type: 'choice', name: d.key, label: d.label, choices: d.choices, column: d.column, required: true })),
+    onNext: v => {
+      S.demo.forEach(d => { R.demo[d.key] = v[d.key]; });
+      renderRating(0);
+    }
+  });
+}
+
+// ---------- 4. 문항 보기 + 평정 ----------
+function itemDef(id) { return S.items.find(x => x.id === id); }
+
+/** 이 문항 화면을 지금까지 본 시간(ms). 다른 문항에 가 있거나 창이 가려진 시간은 빠짐 */
+function seenMs(log) {
+  return log.visibleMs + (log._enter != null ? now() - log._enter : 0);
+}
+
+function isComplete(log) {
+  const P = surveyDef();
+  const keys = (P.criteria || []).map(c => c.key);
+  if (keys.some(k => log.ratings[k] == null)) return false;
+  if (P.requireComment && !String(log.comment).trim()) return false;
+  return true;
+}
+
+function renderRating(cur, missingList = []) {
+  if (activeTimer) activeTimer.pause();
+  document.body.classList.remove('fullscreen');   // 문항을 옮기면 전체 화면은 닫음
+  const n = R.items.length;
+  const log = R.items[cur];
+  const it = itemDef(log.id);
+  const P = surveyDef();
+  const unlocked = !S.study.requireInteraction || log.interactions > 0 || log.failedTries > 0;
+  const doneCount = R.items.filter(isComplete).length;
+  // 준거를 하나씩 보여 줄 때 지금 보이는 준거: 처음엔 아직 안 매긴 첫 준거
+  const keys = (P.criteria || []).map(c => c.key);
+  const stepping = !!(P.stepCriteria && keys.length > 1);
+  let step = Math.max(0, keys.findIndex(k => log.ratings[k] == null));
+  let stepTimer = null;
+  function showStep(i) {
+    step = i;
+    const panel = document.getElementById('panel');
+    panel.querySelectorAll('fieldset[data-crit]').forEach((fs, j) => { fs.hidden = j !== i; });
+    panel.querySelectorAll('.crit-step').forEach((x, j) => {
+      x.classList.toggle('cur', j === i);
+      const v = log.ratings[keys[j]];
+      x.querySelector('b').textContent = v == null ? '–' : v;
+      if (v != null) x.classList.remove('missing');
+    });
+    panel.scrollTop = 0;
+  }
+
+  const chips = `<nav class="chips" aria-label="문항 이동">
+    ${R.items.map((x, i) => {
+      const cls = ['chip'];
+      if (i === cur) cls.push('cur');
+      else if (isComplete(x)) cls.push('done');
+      if (missingList.includes(i)) cls.push('missing');
+      return `<button class="${cls.join(' ')}" data-go="${i}" aria-label="${i + 1}번 문항"${i === cur ? ' aria-current="true"' : ''}>${i + 1}</button>`;
+    }).join('')}
+  </nav>`;
+
+  shell({
+    where: P.name,
+    count: `${cur + 1} / ${n}`,
+    chips,
+    progress: Math.round(8 + (doneCount / n) * 84),
+    body: `<div class="rate">
+      <div class="stage">
+        <div class="stage-bar">
+          <p class="stage-note">아래는 학생이 보는 문항 화면입니다. 직접 풀어 보세요.</p>
+          <button type="button" class="stage-btn" id="full">전체 화면으로 보기</button>
+        </div>
+        <div class="stage-area" id="stagearea">
+          <div class="device"><div class="screen" id="screen"><div class="canvas" id="canvas"></div></div></div>
+        </div>
+      </div>
+      <aside class="panel ${unlocked ? 'open' : 'locked'}" id="panel" aria-label="평정">
+        ${panelHtml(log, P, step)}
+      </aside>
+    </div>`,
+    footer: `<button class="btn" id="prev" ${cur === 0 ? 'disabled' : ''}>이전</button>
+      <span class="msg" id="msg" role="alert">${missingList.length ? `${missingList.map(i => i + 1).join(', ')}번 문항의 평정을 마쳐 주세요.` : ''}</span>
+      <button class="btn primary" id="next">${cur === n - 1 ? '평정 마치기' : '다음 문항'}</button>`
+  });
+  document.getElementById('main').scrollTop = 0;
+
+  const screen = document.getElementById('screen');
+  const canvas = document.getElementById('canvas');
+  fitScreen();
+  mountItem(canvas, it, log, () => {
+    // 첫 조작 시 평정 열기
+    const panel = document.getElementById('panel');
+    if (panel && panel.classList.contains('locked')) {
+      panel.classList.remove('locked'); panel.classList.add('open');
+    }
+  }, cur + 1, n);
+
+  // 타이머
+  activeTimer = {
+    enter() { const t = now(); log._enter = t; if (log._first === undefined) log._first = t; log.visits++; },
+    pause() { if (log._enter != null) { log.visibleMs += now() - log._enter; log._enter = null; } },
+    resume() { if (log._enter == null) log._enter = now(); }
+  };
+  activeTimer.enter();
+
+  // 평정 패널
+  app.oninput = e => {
+    if (e.target.id === 'comment') {
+      log.comment = e.target.value;
+      e.target.closest('fieldset').classList.remove('missing');
+    }
+  };
+  app.onclick = e => {
+    const b = e.target.closest('button');
+    if (!b || screen.contains(b)) return;
+    if (b.id === 'full') { toggleFullscreen(true); return; }
+    if (b.classList.contains('rate-btn')) {
+      const k = b.dataset.crit, v = Number(b.dataset.v);
+      if (log.ratings[k] != null && log.ratings[k] !== v) log.ratingChanges++;
+      log.ratings[k] = v;
+      const t = Math.round(seenMs(log));
+      if (log.firstRatingMs === null) log.firstRatingMs = t;
+      log.lastRatingMs = t;
+      b.parentElement.querySelectorAll('.rate-btn').forEach(x => {
+        x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b);
+      });
+      const fs = b.closest('fieldset'); if (fs) fs.classList.remove('missing');
+      const chip = app.querySelector(`.chip[data-go="${cur}"]`);
+      if (chip && isComplete(log)) chip.classList.remove('missing');
+      if (isComplete(log)) { const msg = document.getElementById('msg'); if (msg && !missingList.length) msg.textContent = ''; }
+      if (stepping) {
+        // 고른 점수가 잠깐 보이게 한 뒤, 아직 안 매긴 다음 준거로 넘어감 (다 매겼으면 그 자리에 둠)
+        const i = keys.indexOf(k);
+        showStep(i);
+        const order = keys.map((_, j) => (i + 1 + j) % keys.length);
+        const nxt = order.find(j => log.ratings[keys[j]] == null);
+        // 예약은 하나만 두고, 그사이 다른 문항으로 옮겨 갔으면(평정 칸이 새로 그려졌으면) 넘기지 않음
+        clearTimeout(stepTimer);
+        const panelNow = document.getElementById('panel');
+        if (nxt !== undefined) stepTimer = setTimeout(() => { if (panelNow.isConnected) showStep(nxt); }, 300);
+      }
+      return;
+    }
+    if (b.classList.contains('crit-step')) { clearTimeout(stepTimer); showStep(Number(b.dataset.step)); return; }
+    if (b.dataset.go !== undefined) { renderRating(Number(b.dataset.go)); return; }
+    if (b.id === 'prev' && cur > 0) { renderRating(cur - 1); return; }
+    if (b.id === 'next') {
+      if (!isComplete(log)) {
+        const msg = document.getElementById('msg');
+        if (S.study.requireInteraction && log.interactions === 0) {
+          msg.textContent = '문항을 먼저 직접 풀어 보신 뒤 평정해 주세요.';
+          return;
+        }
+        markMissing(log, P);
+        if (stepping) {
+          const miss = keys.findIndex(k2 => log.ratings[k2] == null);
+          app.querySelectorAll('.crit-step').forEach((x, j) => x.classList.toggle('missing', log.ratings[keys[j]] == null));
+          if (miss >= 0) showStep(miss);
+        }
+        msg.textContent = '빨간색으로 표시된 평정을 마쳐 주세요.';
+        return;
+      }
+      if (cur < n - 1) { renderRating(cur + 1); return; }
+      const missing = R.items.map((x, i) => isComplete(x) ? -1 : i).filter(i => i >= 0);
+      if (missing.length) { renderRating(missing[0], missing); return; }
+      activeTimer.pause(); activeTimer = null;
+      renderFinal();
+    }
+  };
+}
+
+function markMissing(log, P) {
+  const panel = document.getElementById('panel');
+  let first = null;
+  panel.querySelectorAll('fieldset[data-crit]').forEach(fs => {
+    const miss = log.ratings[fs.dataset.crit] == null;
+    fs.classList.toggle('missing', miss);
+    if (miss && !first) first = fs;
+  });
+  const cfs = panel.querySelector('fieldset.comment');
+  if (P.requireComment && cfs && !String(log.comment).trim()) {
+    cfs.classList.add('missing'); if (!first) first = cfs;
+  }
+  if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function panelHtml(log, P, step) {
+  const lock = `<p class="lock-note">왼쪽(또는 위쪽) 문항을 먼저 직접 풀어 보신 뒤 평정해 주세요.</p>`;
+
+  // 준거별 평정 (있는 경우). stepCriteria 면 준거를 하나씩만 보여 줌(나머지는 숨김)
+  const cs = P.criteria || [];
+  const steps = P.stepCriteria && cs.length > 1
+    ? `<nav class="crit-steps" style="--steps:${cs.length}" aria-label="평정 준거">${cs.map((c, i) =>
+        `<button type="button" class="crit-step${i === step ? ' cur' : ''}" data-step="${i}">${esc(c.short || c.name)}<b>${log.ratings[c.key] == null ? '–' : log.ratings[c.key]}</b></button>`).join('')}</nav>`
+    : '';
+  const crits = cs.map((c, i) => `
+    <fieldset class="crit" data-crit="${c.key}"${steps && i !== step ? ' hidden' : ''}>
+      <legend>${esc(c.name)}</legend>
+      ${c.cue ? `<p class="crit-def crit-cue">${esc(c.cue)}</p>` : `<p class="crit-def">${esc(c.definition)}</p>`}
+      <div class="crit-opts">
+        ${c.levels.map((t, i) => {
+          const v = i + 1, on = log.ratings[c.key] === v;
+          return `<button type="button" class="rate-btn ${on ? 'on' : ''}" aria-pressed="${on}" data-crit="${c.key}" data-v="${v}">
+            <span class="rb-n">${v}</span><span class="rb-t">${rich(t)}</span></button>`;
+        }).join('')}
+      </div>
+    </fieldset>`).join('');
+
+  const comment = `<fieldset class="field comment"><legend>${esc(P.commentLabel)}${P.requireComment ? '' : ' (선택)'}</legend>
+    <textarea id="comment" rows="${crits ? 3 : 4}">${esc(log.comment)}</textarea></fieldset>`;
+
+  return `<h2>평정</h2>${lock}${steps}${crits}${comment}`;
+}
+
+// ---------- 5. 문항 화면 그리기 ----------
+
+// 문항 바깥에 평가 플랫폼 틀(위쪽 띠·오른쪽 문제 번호 칸·아래 화살표)을 두른다.
+// 설정은 Code.gs 의 STUDY.platform 에 있고, 문항 하나만 좁게 만들고 싶으면
+// 그 문항의 design.sidebar(오른쪽 칸 너비)를 쓴다.
+function platformWrap(inner, d, pos, total) {
+  const pf = (S.study && S.study.platform) || null;
+  if (!pf || !pf.on) return inner;
+
+  // 번호 칸: count/current 가 'auto' 면 실제 문항 수와 지금 보고 있는 문항 번호를 따라간다.
+  // 숫자를 적어 두면 그 값으로 고정된다(예전 방식).
+  const count = (pf.count === 'auto' || pf.count == null) ? (Number(total) || 8) : Number(pf.count);
+  const on = (pf.current === 'auto' || pf.current == null) ? (Number(pos) || 1) : Number(pf.current);
+
+  const nums = [];
+  for (let i = 1; i <= count; i++) {
+    nums.push(`<span class="i-plat-num ${i === on ? 'on' : ''}">${i}</span>`);
+  }
+  const tools = (pf.tools || []).map(t => `<span class="i-plat-tool">${esc(t)}</span>`).join('');
+  const width = Number(d.sidebar || pf.sidebar || 232);
+
+  return `<div class="i-plat" style="--iside:${width}px">
+      <div class="i-plat-top" aria-hidden="true">
+        <span class="i-plat-sub">${esc(pf.subject || '')}</span>
+        <span class="i-plat-title">${esc(pf.title || '')}</span>
+        <span class="i-plat-tools">${tools}</span>
+      </div>
+      <div class="i-plat-body">
+        <div class="i-plat-main">${inner}</div>
+        <div class="i-plat-side" aria-hidden="true">
+          <div class="i-plat-side-t">${esc(pf.sideTitle || '')}</div>
+          <div class="i-plat-nums">${nums.join('')}</div>
+          <div class="i-plat-act">${esc(pf.action || '')}</div>
+        </div>
+      </div>
+      <div class="i-plat-nav" aria-hidden="true"><span>‹</span><span>›</span></div>
+    </div>`;
+}
+
+/**
+ * 지문 한 덩어리를 만든다.
+ * 문단 번호(design.paraNums)와 지문 속 박스(boxIn: 'passage')도 여기서 함께 그린다.
+ */
+function passageBlock(it, d) {
+  const P = it.passage || null;
+  if (!P) return '';
+  const fig = P.figure ? `<div class="i-figure" role="img" aria-label="${esc(P.figureAlt || '문항 그림')}">${svgOnly(P.figure)}</div>` : '';
+  const head = P.heading ? `<div class="i-phead">${rich(P.heading)}</div>` : '';
+  let text = '';
+  if (P.text) {
+    // 문단은 빈 줄(\n\n)로 나눠 적어 두고, 화면에서는 문단마다 <p> 하나로 그린다
+    const num = i => d.paraNums ? `<span class="i-pnum" aria-hidden="true">${i + 1}</span>` : '';
+    let inner = String(P.text).split(/\n\s*\n/).map((t, i) =>
+      `<p class="i-para">${num(i)}${rich(t)}</p>`).join('');
+    if (it.type === 'box' && it.boxIn === 'passage') inner = markBoxes(inner, it.boxes || []);
+    if (it.marks) inner = markSentences(inner, it.marks);
+    text =`<div class="i-ptext${d.paraNums ? ' numbered' : ''}">${inner}</div>`;
+  }
+  return `<section class="i-passage"><div class="i-ptitle">${rich(P.title || '')}</div>${head}${fig}${text}</section>`;
+}
+
+/**
+ * 지문 속 문장에 ㉠·㉡… 표시와 밑줄을 붙인다 (선택형에서 문장을 가리킬 때, item.marks).
+ * 원본·변형이 같은 표시를 가지므로 이 표시는 흠이 아니라 문항 내용의 일부다.
+ * 지문에서 그 문장이 처음 나오는 한 곳에만 붙는다.
+ */
+function markSentences(html, marks) {
+  const LABEL = ['㉠', '㉡', '㉢', '㉣', '㉤', '㉥', '㉦', '㉧'];
+  let out = html;
+  marks.forEach((t, i) => {
+    const target = esc(t);
+    const at = out.indexOf(target);
+    if (at < 0) return;   // 지문에 그 문장이 없으면 그냥 둔다 (글자를 고쳤을 때)
+    out = out.slice(0, at) + `<span class="i-smark"><b class="i-smark-k">${LABEL[i] || ''}</b><u>${target}</u></span>` +
+          out.slice(at + target.length);
+  });
+  return out;
+}
+
+/**
+ * 지문 안의 특정 말에 누를 수 있는 박스를 씌운다.
+ * 먼저 자리표를 꽂아 두고 마지막에 한꺼번에 바꾸므로, 앞서 씌운 박스 안에서 다시 찾는 일이 없다.
+ * 지문에서 그 말이 처음 나오는 한 곳에만 박스가 생긴다.
+ */
+function markBoxes(html, boxes) {
+  let out = html;
+  boxes.forEach((t, i) => {
+    const target = esc(t);
+    const at = out.indexOf(target);
+    if (at < 0) return;   // 지문에 그 말이 없으면 그냥 둔다 (글자를 고쳤을 때)
+    out = out.slice(0, at) + '' + i + '' + out.slice(at + target.length);
+  });
+  return out.replace(/(\d+)/g, (m, i) =>
+    `<button type="button" class="i-pbox" aria-pressed="false" data-k="${Number(i) + 1}">${esc(boxes[Number(i)])}</button>`);
+}
+
+function mountItem(canvas, it, log, onFirstInteract, pos, total) {
+  const d = Object.assign({ layout: 'sidefix', clutter: 0, hierarchy: 'clear' }, it.design || {});
+  const P = it.passage || null;
+  const passageHtml = passageBlock(it, d);
+  const heavy = d.clutter >= 2
+    ? `<span class="stk s1" aria-hidden="true">⭐</span><span class="stk s2" aria-hidden="true">🌈</span><span class="stk s3" aria-hidden="true">🎈</span>` : '';
+  const tags = d.clutter >= 2 ? `<div class="i-tags" aria-hidden="true"><span class="t1">중요</span><span class="t2">POINT</span><span class="t3">도전!</span></div>` : '';
+  // 풀이와 상관없는 꾸밈 그림(design.decor: 'kid') — 발문과 자료 사이에 끼워 넣는다
+  const decor = d.decor === 'kid'
+    ? `<div class="i-decor" aria-hidden="true">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="20" r="12" fill="#FFD9A0" stroke="#E8A857" stroke-width="2"/>
+          <path d="M20 20 q12 -14 24 0" fill="none" stroke="#6B4423" stroke-width="4" stroke-linecap="round"/>
+          <path d="M16 62 q-2 -22 16 -24 q18 2 16 24 z" fill="#5B9BD5" stroke="#3E7BB6" stroke-width="2"/>
+        </svg>
+        <div class="i-decor-bubble">${rich(d.decorText || '우리 함께 풀어 볼까요?')}</div>
+      </div>` : '';
+  // 풀이에 필요 없는 그림(design.decorSvg) — 보통은 발문 바로 아래,
+  // design.decorAt: 'passage' 면 지문 칸 위쪽, 'bottom' 이면 응답 영역(안내 문구 포함) 아래에 들어간다
+  const decorFig = d.decorSvg
+    ? `<div class="i-decor-fig" role="img" aria-label="${esc(d.decorAlt || '꾸밈 그림')}">${svgOnly(d.decorSvg)}</div>` : '';
+  const decorInP = d.decorAt === 'passage' ? decorFig : '';
+  const decorInQ = d.decorAt === 'passage' || d.decorAt === 'bottom' ? '' : decorFig;
+  const decorLow = d.decorAt === 'bottom' ? decorFig : '';
+  const stem = `<p class="i-stem">${rich(it.stem)}</p>`;
+  // 발문을 화면 맨 위 전체 폭 띠로 빼는 배치(design.stemBanner)
+  const banner = d.stemBanner ? `<p class="i-stem i-stem-banner">${rich(it.stem)}</p>` : '';
+  const q = `<section class="i-q">${tags}${d.stemBanner ? '' : stem}${decorInQ}${decor}<div class="i-body"></div>${decorLow}</section>`;
+  const left = decorInP && passageHtml ? `<div class="i-leftcol">${decorInP}${passageHtml}</div>` : passageHtml;
+
+  let inner;
+  if (!P) inner = banner + q;
+  // 한 단 세로: 발문 → 지문 → 응답 차례로 쌓는다 (지문과 응답을 동시에 볼 수 없게 됨)
+  else if (d.layout === 'stemtop') {
+    inner = `<section class="i-q">${tags}${stem}${decorInQ}${decor}</section>` +
+            passageHtml + `<section class="i-q"><div class="i-body"></div></section>`;
+  }
+  // 한 단 세로: 발문 → 지문 → 응답. 응답 칸만 화면 아래에 붙어 늘 보인다 (발문은 스크롤되어 사라짐)
+  else if (d.layout === 'stackpin') {
+    inner = `<section class="i-q-head">${tags}${stem}${decorInQ}${decor}</section>` +
+            passageHtml + `<section class="i-q i-q-pin"><div class="i-body"></div></section>`;
+  }
+  else if (d.layout === 'far') inner = banner + q + '<div class="i-spacer" aria-hidden="true"></div>' + passageHtml;
+  else if (d.layout === 'popup') inner = banner + `<button type="button" class="i-open">지문 보기</button>` + q;
+  else inner = banner + `<div class="i-grid">${left}${q}</div>`;
+
+  const style = d.fontSize ? ` style="--ifs:${Number(d.fontSize)}px"` : '';
+  const looks = (d.stemFaint ? ' stem-faint' : '') + (d.smallChoices ? ' small-choices' : '') +
+                (d.noBorders ? ' no-borders' : '') + (d.scanPassage ? ' scan-passage' : '');
+  const itemHtml =
+    `<div class="screen-scroll"><div class="it lay-${esc(d.layout)} clut-${Number(d.clutter)} hier-${esc(d.hierarchy)}${looks}" id="item-${esc(it.id)}"${style}>
+      ${heavy}${inner}
+    </div></div>`;
+  canvas.innerHTML =
+    (it.css ? `<style>${it.css}</style>` : '') +
+    platformWrap(itemHtml, d, pos, total) +
+    (P && d.layout === 'popup' ? `<div class="i-pop"${style} hidden><div class="i-pop-card"><button type="button" class="i-close">닫기 ✕</button>${passageHtml}</div></div>` : '');
+
+  const root = canvas.querySelector('.it');
+  const body = canvas.querySelector('.i-body');
+
+  function commit(resp) {
+    log.response = resp;
+    log.interactions++;
+    if (log.firstInteractMs === null) log.firstInteractMs = Math.round(now() - log._first);
+    if (log.firstRatingMs === null) log.solveMs = Math.round(seenMs(log));
+    else log.lateInteractions++;
+    if (log.interactions === 1) onFirstInteract();
+  }
+  // 조작을 시도했지만 응답이 바뀌지 않은 경우 (조작 흠 변형에서 빗나간 끌기·누르기).
+  // 응답은 그대로 두고 시도 횟수만 셉니다. 끝내 응답하지 못해도 평정은 할 수 있게, 첫 시도로도 평정 칸이 열립니다.
+  function attempt() {
+    log.failedTries = (log.failedTries || 0) + 1;
+    if (log.firstInteractMs === null) log.firstInteractMs = Math.round(now() - log._first);
+    if (log.interactions === 0 && log.failedTries === 1) onFirstInteract();
+  }
+  const ops = { d: d, attempt: attempt };
+
+  // 지문 팝업
+  canvas.addEventListener('click', e => {
+    if (e.target.closest('.i-open')) { canvas.querySelector('.i-pop').hidden = false; log.passageOpens++; }
+    else if (e.target.closest('.i-close') || e.target.classList.contains('i-pop')) canvas.querySelector('.i-pop').hidden = true;
+  });
+
+  if (it.type === 'choice') mountChoice(body, it, log, commit, ops);
+  else if (it.type === 'box') mountBox(root, body, it, log, commit);
+  else if (it.type === 'drag') mountDrag(root, body, it, log, commit, ops);
+  else if (it.type === 'match') mountMatch(body, it, log, commit, ops);
+}
+
+// 선택형
+// design.markOnly: 선택지 줄 전체가 아니라 앞의 번호(①②…)만 눌림. 겉모습은 원본과 같음 (C4 시험용)
+function mountChoice(body, it, log, commit, ops) {
+  body.innerHTML = `<ol class="i-choices">${it.choices.map((c, k) => {
+    const on = log.response === k + 1;
+    return `<li><button type="button" class="i-choice ${on ? 'on' : ''}" aria-pressed="${on}" data-k="${k + 1}">
+      <span class="i-mark">${CIRC[k]}</span><span>${rich(c)}</span></button></li>`;
+  }).join('')}</ol>`;
+  body.addEventListener('click', e => {
+    const b = e.target.closest('.i-choice'); if (!b) return;
+    if (ops.d.markOnly && !e.target.closest('.i-mark')) { ops.attempt(); return; }
+    const k = Number(b.dataset.k);
+    body.querySelectorAll('.i-choice').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    commit(k);
+  });
+}
+
+// 박스 눌러 고르기
+// 박스는 문항 영역에 두는 것이 기본이고, boxIn: 'passage' 면 지문 속 그 말에 박스가 생긴다
+// (박스 자체는 passageBlock에서 이미 그려져 있고, 여기서는 누른 표시와 기록만 맡는다).
+function mountBox(root, body, it, log, commit) {
+  const inPassage = it.boxIn === 'passage';
+  const picked = () => it.multi ? [].concat(log.response || []) : log.response;
+  const hint = it.multi
+    ? `<p class="i-hint">${inPassage ? '지문에서 알맞은 것을 모두 누르세요.' : '알맞은 것을 모두 누르세요.'}</p>` : '';
+
+  body.innerHTML = hint + (inPassage ? '' :
+    `<div class="i-boxes">${it.boxes.map((t, k) =>
+      `<button type="button" class="i-box" aria-pressed="false" data-k="${k + 1}">${rich(t)}</button>`).join('')}</div>`);
+
+  const host = inPassage ? (root.querySelector('.i-passage') || body) : body;
+  const sel = inPassage ? '.i-pbox' : '.i-box';
+
+  function paint() {
+    const p = picked();
+    host.querySelectorAll(sel).forEach(x => {
+      const k = Number(x.dataset.k);
+      const on = it.multi ? [].concat(p || []).includes(k) : p === k;
+      x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+    });
+  }
+
+  host.addEventListener('click', e => {
+    const b = e.target.closest(sel); if (!b) return;
+    const k = Number(b.dataset.k);
+    if (it.multi) {
+      let p = [].concat(picked() || []);
+      p = p.includes(k) ? p.filter(x => x !== k) : p.concat(k).sort((a, b2) => a - b2);
+      commit(p.length ? p : null);
+    } else commit(k);
+    paint();
+  });
+  paint();
+}
+
+// 끌어서 분류하기 (끌기 + 눌러서 옮기기 둘 다 지원)
+// 조작 흠 (C4 시험용, 모두 겉모습은 원본과 같음):
+//   design.labelDrop: 칸 위쪽 이름 띠에 놓아야만 받아짐. 칸의 빈 곳에 놓으면 제자리로 (눌러서 옮기기는 꺼짐)
+//   design.confirmEach: 카드를 칸에 넣을 때마다 "넣을까요?" 확인 창이 뜸 (끌기·누르기 모두)
+//   design.longPress: 카드를 이 시간(ms)만큼 가만히 눌러야 집힘. 그 전에 움직이거나 떼면 아무 일도 없음 (눌러서 옮기기는 꺼짐)
+function mountDrag(root, body, it, log, commit, ops) {
+  const d0 = ops.d;
+  const noTap = !!(d0.labelDrop || d0.longPress);
+  let sel = null;   // 눌러서 고른 낱말
+  let drag = null;  // 끌고 있는 낱말
+  let skipClick = false; // 끌기 직후 따라오는 click 한 번만 무시
+
+  function place() { return log.response || {}; }
+  function draw() {
+    const p = place();
+    const chip = c => `<button type="button" class="i-chip ${sel === c.id ? 'sel' : ''}" data-chip="${c.id}">${rich(c.text)}</button>`;
+    const bin = b => `<div class="i-bin" data-bin="${b.id}">
+         <div class="i-bin-label">${rich(b.label)}</div>
+         <div class="i-bin-drop">${it.chips.filter(c => p[c.id] === b.id).map(chip).join('')}</div>
+       </div>`;
+
+    // it.flow 가 있으면 칸을 세로 흐름도로 그린다
+    // ({text:'…'}는 고정 칸, {bin:'칸id'}는 카드를 놓는 빈칸 — 놓는 동작은 보통 칸과 똑같다)
+    const binsHtml = it.flow
+      ? `<div class="i-flow">${it.flow.map((s, i) => {
+          const arrow = i ? `<div class="i-flow-arrow" aria-hidden="true">↓</div>` : '';
+          const cell = s.bin
+            ? bin(it.bins.find(b => b.id === s.bin) || { id: s.bin, label: '' })
+            : `<div class="i-flow-fix">${rich(s.text || '')}</div>`;
+          return arrow + cell;
+        }).join('')}</div>`
+      : `<div class="i-bins">${it.bins.map(bin).join('')}</div>`;
+
+    body.innerHTML =
+      `<div class="i-bank" data-bin="">${it.chips.filter(c => !p[c.id]).map(chip).join('')}</div>
+       ${binsHtml}
+       <div class="i-tools"><button type="button" class="i-reset">처음으로</button></div>`;
+    root.classList.toggle('sel-mode', !!sel);
+  }
+  function move(chipId, binId, confirmed) {
+    if (d0.confirmEach && binId && !confirmed && place()[chipId] !== binId) { ask(chipId, binId); return; }
+    const p = Object.assign({}, place());
+    if (binId) p[chipId] = binId; else delete p[chipId];
+    commit(Object.keys(p).length ? p : null);
+    sel = null; draw();
+  }
+  // 확인 창: 문항 칸(section.i-q) 위에만 띄움. 열려 있는 동안 문항 칸의 다른 조작은 막힘
+  function ask(chipId, binId) {
+    const host = body.closest('.i-q') || root;
+    host.style.position = 'relative';
+    const chip = it.chips.find(c => c.id === chipId), bin = it.bins.find(b => b.id === binId) || { label: '' };
+    const cover = document.createElement('div');
+    cover.className = 'i-confirm-cover';
+    cover.innerHTML = `<div class="i-confirm" role="dialog" aria-modal="true">
+        <p>‘${rich(chip.text)}’ 카드를 ‘${rich(bin.label)}’ 칸에 넣을까요?</p>
+        <div class="i-confirm-btns"><button type="button" class="no">취소</button><button type="button" class="ok">넣기</button></div>
+      </div>`;
+    cover.addEventListener('pointerdown', e => e.stopPropagation());
+    cover.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.target.closest('.ok')) { cover.remove(); move(chipId, binId, true); }
+      else if (e.target.closest('.no')) { cover.remove(); ops.attempt(); sel = null; draw(); }
+    });
+    host.appendChild(cover);
+  }
+  function targetAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.i-bin, .i-bank') : null;
+  }
+  function clearHot() { body.querySelectorAll('.hot').forEach(x => x.classList.remove('hot')); }
+
+  body.addEventListener('pointerdown', e => {
+    skipClick = false;
+    const c = e.target.closest('.i-chip'); if (!c) return;
+    e.preventDefault();
+    drag = { id: c.dataset.chip, el: c, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, ghost: null,
+             armed: !d0.longPress };
+    c.setPointerCapture(e.pointerId);
+    if (d0.longPress) {
+      const me = drag;
+      me.timer = setTimeout(() => { if (drag === me) { me.armed = true; lift(me, me.lx, me.ly); } }, Number(d0.longPress));
+    }
+  });
+  if (d0.longPress) body.addEventListener('contextmenu', e => { if (e.target.closest('.i-chip')) e.preventDefault(); });
+  function lift(dr, x, y) {
+    const g = dr.el.cloneNode(true);
+    g.classList.add('ghost'); g.classList.remove('sel');
+    g.style.fontSize = getComputedStyle(dr.el).fontSize;
+    g.style.transform = 'translate(-50%, -50%) rotate(-2deg) scale(' + SCALE + ')';
+    g.style.left = x + 'px'; g.style.top = y + 'px';
+    document.body.appendChild(g);
+    dr.ghost = g; dr.el.classList.add('dragging');
+  }
+  body.addEventListener('pointermove', e => {
+    if (!drag) return;
+    drag.lx = e.clientX; drag.ly = e.clientY;
+    if (!drag.armed) {
+      // 길게 누르기 전에 움직이면 집히지 않고 그대로 끝남
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) { clearTimeout(drag.timer); drag = null; ops.attempt(); }
+      return;
+    }
+    if (!drag.ghost && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) lift(drag, e.clientX, e.clientY);
+    if (drag.ghost) {
+      drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+      clearHot();
+      const t = targetAt(e.clientX, e.clientY); if (t) t.classList.add('hot');
+    }
+  });
+  function endDrag(e, cancelled) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    clearTimeout(d.timer);
+    clearHot();
+    if (d.ghost) {
+      skipClick = true;   // 끌기 직후 따라오는 click만 무시
+      d.ghost.remove();
+      let t = cancelled ? null : targetAt(e.clientX, e.clientY);
+      if (t && d0.labelDrop && t.dataset.bin) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        if (!(el && el.closest('.i-bin-label'))) { t = null; ops.attempt(); }
+      }
+      if (t) move(d.id, t.dataset.bin); else { d.el.classList.remove('dragging'); }
+    } else if (!cancelled) {
+      if (noTap) { ops.attempt(); return; }
+      sel = sel === d.id ? null : d.id; draw();
+    }
+  }
+  body.addEventListener('pointerup', e => endDrag(e, false));
+  body.addEventListener('pointercancel', e => endDrag(e, true));
+  body.addEventListener('click', e => {
+    if (e.target.closest('.i-reset')) { if (log.response) { sel = null; commit(null); draw(); } return; }
+    if (e.target.closest('.i-chip')) return;
+    if (skipClick) { skipClick = false; return; }
+    const t = e.target.closest('.i-bin, .i-bank');
+    if (t && sel) move(sel, t.dataset.bin);
+  });
+  draw();
+}
+
+// 선 잇기 (끌어서 잇기 + 차례로 눌러 잇기 둘 다 지원, 선을 누르면 지워짐)
+// design.tapOnly: 끌어서 잇기가 안 되고 점을 차례로 눌러야만 이어짐. 끄는 동안 선도 따라오지 않음 (C4 시험용)
+// design.hideLines: 이어도 선이 남지 않고 점 색만 바뀜 — 무엇과 무엇을 이었는지 확인할 수 없음.
+//                   선을 눌러 지울 수도 없어 '처음으로'로만 고칠 수 있음 (C4 시험용)
+function mountMatch(body, it, log, commit, ops) {
+  let pending = null;  // {side, id}
+  let drag = null;
+  let tmp = null;      // 끌고 있는 임시 선
+
+  body.innerHTML = `<div class="i-match">
+      <div class="i-col left">${it.left.map(x => `<button type="button" class="i-node" data-side="L" data-id="${x.id}"><span class="i-dot"></span><span>${rich(x.text)}</span></button>`).join('')}</div>
+      <div class="i-col right">${it.right.map(x => `<button type="button" class="i-node" data-side="R" data-id="${x.id}"><span class="i-dot"></span><span>${rich(x.text)}</span></button>`).join('')}</div>
+      <svg class="i-lines" aria-hidden="true"></svg>
+    </div>
+    <div class="i-tools"><button type="button" class="i-reset">처음으로</button></div>`;
+  const box = body.querySelector('.i-match');
+  const svg = body.querySelector('.i-lines');
+  const node = (side, id) => box.querySelector(`.i-node[data-side="${side}"][data-id="${id}"]`);
+
+  // 화면이 확대·축소되어 있으므로, 화면 좌표를 문항 내부 좌표로 되돌려 선을 그린다
+  function ratio() {
+    const r = box.getBoundingClientRect();
+    return box.offsetWidth ? r.width / box.offsetWidth : 1;
+  }
+  function dotXY(n) {
+    const k = ratio();
+    const r = n.querySelector('.i-dot').getBoundingClientRect(), b = box.getBoundingClientRect();
+    return { x: (r.left + r.width / 2 - b.left) / k, y: (r.top + r.height / 2 - b.top) / k };
+  }
+  function draw() {
+    const p = log.response || {};
+    let s = '';
+    Object.keys(p).forEach(l => {
+      if (ops.d.hideLines) return;
+      const a = node('L', l), b = node('R', p[l]); if (!a || !b) return;
+      const A = dotXY(a), B = dotXY(b);
+      s += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>` +
+           `<line class="hit" data-l="${l}" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"><title>선 지우기</title></line>`;
+    });
+    if (tmp) s += `<line class="tmp" x1="${tmp.x1}" y1="${tmp.y1}" x2="${tmp.x2}" y2="${tmp.y2}"/>`;
+    svg.innerHTML = s;
+    box.querySelectorAll('.i-node').forEach(n => {
+      const linked = n.dataset.side === 'L' ? !!p[n.dataset.id] : Object.values(p).includes(n.dataset.id);
+      n.classList.toggle('linked', linked);
+      n.classList.toggle('pending', !!pending && pending.side === n.dataset.side && pending.id === n.dataset.id);
+    });
+  }
+  function connect(a, b) {
+    const l = a.side === 'L' ? a.id : b.id, r = a.side === 'L' ? b.id : a.id;
+    const p = Object.assign({}, log.response || {});
+    Object.keys(p).forEach(k => { if (p[k] === r) delete p[k]; });
+    p[l] = r;
+    pending = null;
+    commit(p); draw();
+  }
+
+  box.addEventListener('pointerdown', e => {
+    const hit = e.target.closest('line.hit');
+    if (hit) {
+      const p = Object.assign({}, log.response || {}); delete p[hit.dataset.l];
+      commit(Object.keys(p).length ? p : null); draw(); return;
+    }
+    const n = e.target.closest('.i-node'); if (!n) return;
+    e.preventDefault();
+    drag = { side: n.dataset.side, id: n.dataset.id, x: e.clientX, y: e.clientY, moved: false };
+    n.setPointerCapture(e.pointerId);
+  });
+  box.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
+    if (drag.moved && !ops.d.tapOnly) {
+      const A = dotXY(node(drag.side, drag.id)), b = box.getBoundingClientRect(), k = ratio();
+      tmp = { x1: A.x, y1: A.y, x2: (e.clientX - b.left) / k, y2: (e.clientY - b.top) / k };
+      draw();
+    }
+  });
+  function end(e, cancelled) {
+    if (!drag) return;
+    const d = drag; drag = null; tmp = null;
+    if (cancelled) { draw(); return; }
+    if (d.moved && ops.d.tapOnly) { ops.attempt(); draw(); }
+    else if (d.moved) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const t = el && el.closest('.i-node');
+      if (t && t.dataset.side !== d.side) connect(d, { side: t.dataset.side, id: t.dataset.id });
+      else draw();
+    } else {
+      if (pending && pending.side !== d.side) connect(pending, d);
+      else { pending = (pending && pending.id === d.id && pending.side === d.side) ? null : { side: d.side, id: d.id }; draw(); }
+    }
+  }
+  box.addEventListener('pointerup', e => end(e, false));
+  box.addEventListener('pointercancel', e => end(e, true));
+  body.addEventListener('click', e => {
+    if (e.target.closest('.i-reset') && log.response) { pending = null; commit(null); draw(); }
+  });
+
+  if (window.ResizeObserver) new ResizeObserver(() => draw()).observe(box);
+  window.addEventListener('screenfit', draw);
+  draw();
+}
+
+// ---------- 6. 마지막 질문 ----------
+function renderFinal() {
+  const qs = surveyDef().finalQuestions;
+  formPage({
+    progress: 95,
+    heading: '마지막 질문',
+    lead: '평정을 모두 마치셨습니다. 아래 질문에 답해 주시면 조사에 큰 도움이 됩니다.',
+    fields: qs.map(q => ({ type: 'text', name: q.key, label: q.label + (q.required ? '' : ' (선택)'), required: q.required })),
+    nextLabel: '제출하기',
+    onNext: v => {
+      qs.forEach(q => { R.final[q.key] = v[q.key] || ''; });
+      R.finishedAt = new Date().toISOString();
+      submitAll();
+    }
+  });
+}
+
+// ---------- 7. 제출 ----------
+function submitAll() {
+  shell({ progress: 100, body: '<div class="center">응답을 저장하고 있습니다</div>' });
+  app.onclick = null; app.oninput = null;
+  const payload = JSON.parse(JSON.stringify(R, (k, v) => (k.charAt(0) === '_' ? undefined : v)));
+  callServer('submit', [payload]).then(
+    res => {
+      if (res && res.ok === false) {
+        shell({
+          progress: 100,
+          body: `<section class="sheet"><h1>제출할 수 없습니다</h1>
+            <p class="lead">${res.reason === 'done' ? '이 참여 코드로는 이미 제출이 끝났습니다.' : '참여 코드를 확인할 수 없습니다.'}
+연구자에게 알려 주세요.</p></section>`
+        });
+        return;
+      }
+      R.saved = true;
+      shell({
+        progress: 100,
+        body: `<section class="sheet"><h1>제출했습니다</h1><p class="debrief">${esc(S.study.debrief)}</p></section>`
+      });
+    },
+    () => {
+      R.finishedAt = null;
+      shell({
+        progress: 100,
+        body: `<section class="sheet"><h1>응답을 저장하지 못했습니다</h1>
+          <p class="lead">인터넷 연결을 확인한 뒤 다시 저장을 눌러 주세요. 창을 닫으면 응답이 사라집니다.</p></section>`,
+        footer: `<button class="btn primary" id="retry">다시 저장</button>`
+      });
+      app.onclick = e => { if (e.target.closest('#retry')) { R.finishedAt = new Date().toISOString(); submitAll(); } };
+    });
+}
+</script>
+</body>
+</html>
