@@ -3,19 +3,19 @@
  * ------------------------------------------------------------
  * 델파이 조사 뒤 준거가 바뀌면 이 파일만 고치면 됩니다.
  *
- * 1) 결함을 끄고 켜기: defects.<이름>.on 을 true / false 로 바꾼다.
+ * 1) 결함을 끄고 켜기: defects.<문항 id>.on 을 true / false 로 바꾼다.
  *    끄면 그 문항은 14개 지표를 모두 충족하는 '결함 없는 판'으로 그려진다.
  * 2) 지표 이름이 바뀌면: indicators 의 name 을 고치고, defects 의 indicator 가
  *    같은 id 를 가리키는지 확인한다.
  * 3) 브라우저 주소로 잠시 바꿔 보기 (파일은 그대로):
  *      ?clean=1            모든 결함 끄기
- *      ?off=bigMascot      그 결함만 끄기 (쉼표로 여러 개)
- *      ?on=bigMascot       그 결함만 켜기
- *      ?item=5             5번 문항부터 보기
+ *      ?set=M&item=5       중등 세트 5번 보기 (set: E 초등 / M 중등)
+ *      ?off=E02            그 문항의 결함만 끄기 (쉼표로 여러 개)
+ *      ?on=E02             그 문항의 결함만 켜기
  *      ?panel=1            문항 화면 밖에 연구자 설정 칸 열기
  */
 window.ITEM_CONFIG = {
-  version: '최종 준거(4준거 14지표) · 평정용 12문항 v1',
+  version: '최종 준거(4준거 14지표) · 평정용 24문항(초등 12·중등 12) v2',
 
   criteria: [
     { id: 'C1', name: '화면 요소의 필요성' },
@@ -42,39 +42,25 @@ window.ITEM_CONFIG = {
     { id: 'I14', criterion: 'C4', name: '응답 결과 표시', text: '선택·입력한 응답은 즉시 분명하게 표시된다.', example: '끌어다 놓은 뒤 칸을 벗어나 보이는 조각' }
   ],
 
-  // 결함 스위치. item 은 문항 번호, indicator 는 위 indicators 의 id.
+  // 결함 스위치 — 문항 id 로 켜고 끈다. indicator 는 위 indicators 의 id.
+  // 두 세트(초등 E·중등 M)는 같은 지표 8개를 같은 결함 방식으로 다룬다(내용만 학교급에 맞게 다름).
+  // ※ 평정 조사에서 실제로 쓰는 값은 Code.gs 의 DEFECTS 이다. 이 파일은 미리보기 페이지의 기본값.
   defects: {
-    infoTrivia: {
-      on: true, item: 1, indicator: 'I01',
-      what: '응답 영역 아래에 풀이에 쓰이지 않는 교과 덧붙임 지식 상자("더 알아보기")를 둔다.'
-    },
-    bigMascot: {
-      on: true, item: 2, indicator: 'I02',
-      what: '문두 옆에 문두 글자보다 시각적 무게가 큰 정지 캐릭터 그림을 둔다.'
-    },
-    colorOnlyArrows: {
-      on: true, item: 3, indicator: 'I05',
-      what: '그림 속 화살표 셋을 색으로만 구분하고, 잇기 칸도 색 이름으로만 가리킨다. (끄면 ㉠㉡㉢ 기호가 붙는다)'
-    },
-    overEmphasis: {
-      on: true, item: 4, indicator: 'I07',
-      what: '문두의 거의 모든 어구를 서로 다른 방식으로 강조해 핵심 조건이 묻힌다. (끄면 핵심 조건만 강조)'
-    },
-    popupCoversResponse: {
-      on: true, item: 5, indicator: 'I09',
-      what: '지문을 [지문 보기] 팝업으로만 볼 수 있고, 팝업이 문두 아래의 응답 영역을 덮는다. 문두는 가리지 않는다.'
-    },
-    farApartFigures: {
-      on: true, item: 6, indicator: 'I10',
-      what: '서로 비교해야 하는 도형 (가)와 (나)를 화면 왼쪽 위와 오른쪽 아래에 떨어뜨려 둔다. (끄면 나란히)'
-    },
-    hiddenInputBlank: {
-      on: true, item: 7, indicator: 'I11',
-      what: '입력 칸이 본문 괄호와 똑같이 보이고 입력 안내가 없다. (끄면 입력 칸 표시와 안내가 생긴다)'
-    },
-    dotAfterDrop: {
-      on: true, item: 8, indicator: 'I14',
-      what: '칸에 놓은 카드가 글자 없이 작은 점으로만 남아 무엇을 놓았는지 보이지 않는다. (터치 범위는 그대로)'
-    }
+    E01: { on: true, indicator: 'I01', what: '응답 영역 아래 풀이에 쓰이지 않는 덧붙임 지식 상자' },
+    E02: { on: true, indicator: 'I02', what: '문두 옆, 문두 글자보다 시각적 무게가 큰 정지 캐릭터' },
+    E03: { on: true, indicator: 'I05', what: '지층을 색으로만 구분하고 선택지도 색 이름뿐 (끄면 ㉠~㉣ 기호)' },
+    E04: { on: true, indicator: 'I07', what: '문두 어구마다 다른 강조로 핵심 조건이 묻힘 (끄면 \'바르게 계산하면\'만 강조)' },
+    E05: { on: true, indicator: 'I09', what: '지문을 팝업으로만 보고, 팝업이 응답 영역을 덮음 (문두는 가리지 않음)' },
+    E06: { on: true, indicator: 'I10', what: '비교할 도형 (가)·(나)를 화면 왼쪽 위·오른쪽 아래로 떨어뜨림' },
+    E07: { on: true, indicator: 'I11', what: '입력 칸이 본문 괄호와 똑같이 보이고 입력 안내가 없음' },
+    E08: { on: true, indicator: 'I14', what: '칸에 놓은 카드가 글자 없는 작은 점으로만 남음 (누르는 범위는 그대로)' },
+    M01: { on: true, indicator: 'I01', what: '응답 영역 아래 풀이에 쓰이지 않는 덧붙임 지식 상자' },
+    M02: { on: true, indicator: 'I02', what: '문두 옆, 문두 글자보다 시각적 무게가 큰 정지 캐릭터' },
+    M03: { on: true, indicator: 'I05', what: '화살표를 색으로만 구분하고 잇기 칸도 색 이름뿐 (끄면 ㉠㉡㉢ 기호)' },
+    M04: { on: true, indicator: 'I07', what: '문두 어구마다 다른 강조로 핵심 조건이 묻힘 (끄면 핵심 조건만 강조)' },
+    M05: { on: true, indicator: 'I09', what: '지문을 팝업으로만 보고, 팝업이 응답 영역을 덮음 (문두는 가리지 않음)' },
+    M06: { on: true, indicator: 'I10', what: '비교할 그래프 A·B를 화면 왼쪽 위·오른쪽 아래로 떨어뜨림' },
+    M07: { on: true, indicator: 'I11', what: '입력 칸이 본문 괄호와 똑같이 보이고 입력 안내가 없음' },
+    M08: { on: true, indicator: 'I14', what: '칸에 놓은 카드가 글자 없는 작은 점으로만 남음 (누르는 범위는 그대로)' }
   }
 };

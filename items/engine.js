@@ -24,7 +24,10 @@
   }
   const indicatorOf = id => CFG.indicators.find(x => x.id === id);
 
-  let cur = Math.min(ITEMS.length - 1, Math.max(0, (parseInt(qs.get('item'), 10) || 1) - 1));
+  // 세트(E 초등 / M 중등) 안에서 차례로 본다
+  let set = qs.get('set') === 'M' ? 'M' : 'E';
+  const list = () => ITEMS.filter(x => x.set === set);
+  let cur = Math.min(11, Math.max(0, (parseInt(qs.get('item'), 10) || 1) - 1));
   const state = {};       // 문항 id → 응답
   const scratch = {};     // 문항 id → 연습장 획
   let SCALE = 1, view = null;
@@ -41,10 +44,10 @@
   window.addEventListener('resize', fit);
 
   function render() {
-    const it = ITEMS[cur];
+    const L = list(), it = L[cur];
     view = RT.mount($('#canvas'), {
-      item: it, D, response: state[it.id], pos: cur + 1, total: ITEMS.length,
-      answeredAt: i => RT.answered(ITEMS[i], state[ITEMS[i].id]),
+      item: it, D, response: state[it.id], pos: cur + 1, total: L.length,
+      answeredAt: i => RT.answered(L[i], state[L[i].id]),
       scale: () => SCALE,
       scratch: scratch[it.id] || (scratch[it.id] = {}),
       onChange: r => { state[it.id] = r; },
@@ -63,13 +66,15 @@
     p.innerHTML = `<h2>연구자 설정</h2>
       <p class="rp-note">문항 화면 밖의 칸이라 평정 대상이 아닙니다. 체크를 바꾸면 이 창에서만 바뀌고, 주소에 반영됩니다. 기본값은 <code>items/config.js</code>, 평정 조사에서는 <code>Code.gs</code>의 DEFECTS 입니다.</p>
       <div class="rp-btns"><button type="button" data-all="1">결함 모두 켜기</button><button type="button" data-all="0">결함 모두 끄기</button><button type="button" data-all="cfg">설정 파일대로</button></div>
-      <ol class="rp-list">${ITEMS.map((it, i) => {
-        const df = it.defect ? CFG.defects[it.defect] : null;
+      <div class="rp-btns rp-sets">${Object.keys(window.ITEM_SETS).map(k =>
+        `<button type="button" data-set="${k}" class="${k === set ? 'on' : ''}">${window.ITEM_SETS[k]} 세트</button>`).join('')}</div>
+      <ol class="rp-list">${list().map((it, i) => {
+        const df = CFG.defects[it.id] || null;
         const ind = df ? indicatorOf(df.indicator) : null;
         return `<li class="${i === cur ? 'cur' : ''}">
-          <button type="button" class="rp-go" data-go="${i}">${it.no}. ${it.school} · ${it.subject} · ${TYPE_NAME[it.type]}</button>
+          <button type="button" class="rp-go" data-go="${i}">${it.id} · ${it.subject} · ${TYPE_NAME[it.type]}</button>
           <div class="rp-ind">${ind ? ind.name : '결함 없음'}</div>
-          ${df ? `<label class="rp-sw"><input type="checkbox" data-def="${it.defect}" ${on[it.defect] ? 'checked' : ''}> 결함 켜기 <code>${it.defect}</code></label><div class="rp-what">${df.what}</div>` : ''}
+          ${df ? `<label class="rp-sw"><input type="checkbox" data-def="${it.id}" ${on[it.id] ? 'checked' : ''}> 결함 켜기</label><div class="rp-what">${df.what}</div>` : ''}
         </li>`;
       }).join('')}</ol>`;
   }
@@ -83,12 +88,15 @@
       Object.keys(on).forEach(k => { on[k] = all.dataset.all === 'cfg' ? !!CFG.defects[k].on : all.dataset.all === '1'; });
       render(); return;
     }
+    const st = e.target.closest('[data-set]');
+    if (st) { set = st.dataset.set; cur = 0; render(); return; }
     const go = e.target.closest('[data-go]');
     if (go) { cur = Number(go.dataset.go); render(); }
   });
   function syncUrl() {
     const p = new URLSearchParams();
-    p.set('item', ITEMS[cur].no);
+    p.set('set', set);
+    p.set('item', cur + 1);
     if (PANEL) p.set('panel', '1');
     const offs = Object.keys(on).filter(k => CFG.defects[k].on && !on[k]);
     const ons = Object.keys(on).filter(k => !CFG.defects[k].on && on[k]);
@@ -98,7 +106,7 @@
   }
 
   // 점검용
-  window.__items = { D, on, state, ITEMS, go(i) { cur = i; render(); }, render };
+  window.__items = { D, on, state, ITEMS, go(s, i) { set = s; cur = i; render(); }, render };
 
   render();
   fit();

@@ -31,3 +31,4 @@ button { font: inherit; color: inherit; }
 .rp-sw { display: flex; align-items: center; gap: 6px; }
 .rp-what { color: #5B6573; font-size: 13px; }
 code { font-size: 12px; background: #EEF1F4; padding: 1px 4px; border-radius: 4px; }
+.rp-sets button.on { background: #263445; border-color: #263445; color: #fff; font-weight: 700; }

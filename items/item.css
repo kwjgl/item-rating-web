@@ -13,7 +13,7 @@
   font-family: var(--sans); color: #1E2530; word-break: keep-all; text-align: left;
 }
 .p-frame *, .p-frame *::before, .p-frame *::after { box-sizing: border-box; }
-.p-frame button { font: inherit; color: inherit; }
+:where(.p-frame) button { font: inherit; color: inherit; }
 .p-frame :focus-visible { outline: 3px solid #F59E0B; outline-offset: 2px; }
 /* 끄는 동안 손가락을 따라다니는 카드 (문항 화면 밖 body 에 붙음) */
 #ghostHost .ghost { font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; box-sizing: border-box;
@@ -216,3 +216,30 @@
 .i-far .far-a { grid-column: 1; grid-row: 1; justify-self: start; }
 .i-far .far-r { grid-column: 2; grid-row: 1; }
 .i-far .far-b { grid-column: 2; grid-row: 2; justify-self: end; align-self: end; }
+
+/* ---------- 24문항 확장 ---------- */
+/* 긴 지문: 지문 칸 안에서만 스크롤 (문두·응답 영역은 제자리) */
+.i-cols:has(> .scroll) { grid-template-rows: minmax(0, 1fr); }
+.i-data.scroll { max-height: 100%; overflow-y: auto; min-height: 0; }
+.i-ptext.poem .stanza { margin-top: 1em; }
+.i-bins.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.i-below { margin-top: 18px; }
+.i-figs .graph svg { width: 100%; max-width: 400px; height: auto; }
+.i-far .graph svg { width: 340px; height: auto; }
+.i-far:has(.graph) { gap: 12px 28px; }
+
+/* 그림 칸: 임시 SVG 위에 그림 파일(items/assets)을 덮고, 그 위에 기호·화살표를 덧그린다 */
+.i-art { position: relative; width: 100%; overflow: hidden; border-radius: 6px; }
+.i-art > svg, .i-art > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.i-art > img { object-fit: contain; background: #fff; }
+.i-icon { width: 44px; height: 44px; object-fit: contain; margin-right: 8px; vertical-align: middle; }
+.i-node-t { display: flex; align-items: center; justify-content: center; }
+
+/* M12 지형 그림 잇기 */
+.i-match.land { grid-template-columns: 1fr 1fr; column-gap: 110px; max-width: 760px; }
+.i-match.land .i-col { gap: 12px; }
+.i-match.land .i-col.left .i-node { padding: 6px 10px; }
+.i-land { display: flex; align-items: center; gap: 10px; width: 100%; }
+.i-land b { flex: none; }
+.i-land .i-art { width: 200px; flex: none; }
+.i-match.land .i-col.right { align-content: space-around; }

@@ -1,11 +1,13 @@
 /**
  * 디지털 평가 문항 평정 연구 — 교사 평정 웹앱 (서버 코드)
- * 최종 준거(4준거 14지표) · 평정용 12문항 (초·중 × 국어·수학·과학·사회)
+ * 최종 준거(4준거 14지표) · 평정용 24문항 — 초등 세트 12(E01~E12) · 중등 세트 12(M01~M12)
+ *   교사는 기본 정보의 '근무 학교급' 답에 따라 한 세트(12문항)만 평정합니다.
  *
  * [파일 구성]
  *   Code.gs (이 파일, 앱스크립트) — 설정·참여 코드·응답 저장
  *   교사 화면(GitHub Pages)       — index.html + items/ 폴더
- *     items/items.js   : 12문항의 화면(지문·발문·선택지·그림). 문항 내용은 여기에 있습니다.
+ *     items/items.js   : 24문항의 화면(지문·발문·선택지·그림·정답). 문항 내용은 여기에 있습니다.
+ *     items/assets/    : 그림 파일 (작업 지시서: items/assets/README.md). 없으면 임시 그림이 보입니다.
  *     items/runtime.js : 플랫폼 틀(연습장·문항 번호·정답 확인)과 응답 조작
  *     items/item.css   : 문항 화면 모양
  *   ※ 결함을 켜고 끄는 기준은 이 파일의 DEFECTS 입니다. 참여 코드를 확인할 때 교사 화면으로 보내고,
@@ -16,7 +18,7 @@
  * 2) 저장 → 함수 드롭다운에서 setup 선택 → 실행 (권한 허용)
  *    → 응답 시트가 만들어지고 실행 로그에 링크가 나옴
  * 3) 아래 CODE_BATCH에서 코드 개수·묶음 이름을 정하고 generateCodes 실행
- *    → 응답 시트의 codes 탭에 참여 코드가 생김 (모든 참여자가 같은 12문항을 봅니다)
+ *    → 응답 시트의 codes 탭에 참여 코드가 생김 (세트는 코드가 아니라 기본 정보의 학교급 답으로 정해집니다)
  *    ※ 파일럿과 본조사는 같은 화면이고, 묶음 이름(batch)으로만 구분합니다.
  * 4) 배포 → 새 배포 → 웹 앱 → 실행: 나 / 액세스: 모든 사용자 → 배포
  *    ※ 반드시 '/exec'로 끝나는 웹 앱 URL을 쓸 것 ('/dev' 테스트 URL은 소유자만 열림)
@@ -29,7 +31,7 @@
  *   결함만 따로 보려면(시트 기록 없음): 교사화면URL/items/?panel=1
  *
  * [응답 시트 구성]
- *   participants : 참여자 한 명당 한 줄 (기본 정보, 소요 시간, 문항 제시 순서, 결함 상태, 마지막 의견)
+ *   participants : 참여자 한 명당 한 줄 (세트 level, 기본 정보, 소요 시간, 문항 제시 순서, 결함 상태, 마지막 의견)
  *   ratings      : 평정 한 개당 한 줄 → 다국면 라쉬(FACETS) 분석용 긴 형식
  *                  (평정자 pid × 문항 item_id × 준거 criterion → score, flawed = 이 준거에 결함을 넣었는가)
  *   items        : 문항 한 개당 한 줄 → 조작 로그 (본 시간, 조작 횟수, 정답 확인·연습장 사용, 응답, 정답 여부, 의견)
@@ -70,7 +72,11 @@ const STUDY = {
 
   // 창(브라우저)이 작아 문항이 아래 비율보다 작게 줄어들면 진행을 막고 PC로 열도록 안내합니다.
   minWindowWidth: 1000,
-  minScale: 0.55
+  minScale: 0.55,
+
+  // 어느 세트를 평정할지 정하는 기본 정보 문항과, 그 답(차례대로)에 대응하는 세트.
+  // DEMO 의 school 선택지가 ['초등학교', '중학교'] 이므로 0 → E(초등), 1 → M(중등).
+  levelFrom: { key: 'school', sets: ['E', 'M'] }
 
   // ※ 예전의 platform 설정(그림으로만 그린 위쪽 띠·번호 칸)은 없앴습니다.
   //   이제 플랫폼 공통 요소(연습장·문항 번호·정답 확인)는 실제로 눌리고, 모든 문항에 똑같이 그려집니다
@@ -82,7 +88,7 @@ const STUDY = {
 const SURVEY = {
   name: '문항 평정',
   guide:
-    '문항 12개를 하나씩 보여 드립니다.\n' +
+    '선생님 학교급에 맞는 문항 12개를 하나씩 보여 드립니다.\n' +
     '각 문항을 학생이 된 것처럼 직접 풀어 보신 뒤, 제시된 평정 준거 4개에 따라 평정해 주세요.\n' +
     '준거마다 판단 단서(지표)가 함께 나옵니다. 모든 지표는 그 문항이 측정하려는 능력과 응시 학습자에 비추어 판단해 주세요.\n' +
     '각 준거의 점수별 설명을 읽고 문항에 가장 가까운 점수를 골라 주시면 됩니다.\n' +
@@ -177,9 +183,10 @@ const SURVEY = {
 
 // ===================== 3. 기본 정보 =====================
 // 조사 대상이 초·중학교 교사로 넓어져 '담당 학년'을 '학교급'과 '주 담당 교과'로 바꿨습니다.
+// ※ school 의 답으로 평정할 세트가 정해집니다(STUDY.levelFrom). 선택지 차례를 바꾸면 levelFrom.sets 도 함께 바꾸세요.
 const DEMO = [
   { key: 'career', label: '교직 경력', choices: ['5년 미만', '5년 이상 10년 미만', '10년 이상 20년 미만', '20년 이상'] },
-  { key: 'school', label: '근무 학교급', choices: ['초등학교', '중학교', '기타'] },
+  { key: 'school', label: '근무 학교급 (이 답에 따라 평정할 문항이 정해집니다)', choices: ['초등학교', '중학교'] },
   { key: 'subject', label: '주로 가르치는 교과', choices: ['초등 담임(여러 교과)', '국어', '수학', '과학', '사회', '그 밖의 교과'], column: true },
   { key: 'cbt', label: '컴퓨터 기반 평가(예: 맞춤형 학업성취도 자율평가)를 시행해 보신 적이 있나요?', choices: ['있다', '없다'] },
   { key: 'digital', label: '수업이나 평가에서 디지털 평가 문항(에듀테크 플랫폼 등)을 얼마나 자주 사용하시나요?',
@@ -189,67 +196,76 @@ const DEMO = [
 
 // ===================== 4. 결함 스위치 =====================
 /*
- * 결함 문항 8개(준거별 2개, 서로 다른 지표 8개). on 을 false 로 바꾸면 그 문항은
+ * 세트마다 결함 문항 8개(준거별 2개, 서로 다른 지표 8개). 두 세트는 같은 지표 8개를 같은 결함 방식으로 다루고,
+ * 내용만 학교급에 맞게 다릅니다. 문항 id 로 켜고 끕니다. on 을 false 로 바꾸면 그 문항은
  * 14개 지표를 모두 충족하는 판으로 나갑니다. 화면 차이는 items/items.js 에 있습니다.
  * 바꾼 뒤에는 toolVersion 을 바꾸세요(시트의 defect_on 열에도 그 사람이 본 상태가 남습니다).
  *
- *   이름                 문항  준거  지표              결함
- *   infoTrivia           1    C1   정보 선별          응답 영역 아래 풀이와 무관한 덧붙임 지식 상자
- *   bigMascot            2    C1   장식 절제          문두 옆, 문두보다 큰 정지 캐릭터
- *   colorOnlyArrows      3    C2   색 외 구분 단서     화살표를 색으로만 구분, 잇기 칸도 색 이름으로만
- *   overEmphasis         4    C2   핵심 정보 강조      문두 어구마다 다른 강조 → 핵심 조건이 묻힘
- *   popupCoversResponse  5    C3   지문·자료 참조      지문 팝업이 응답 영역을 덮음(문두는 가리지 않음)
- *   farApartFigures      6    C3   관련 정보 근접 배치  비교할 두 도형을 화면 대각선 끝에 떨어뜨림
- *   hiddenInputBlank     7    C4   응답 방식 인지      입력 칸이 본문 괄호와 똑같이 보이고 안내 없음
- *   dotAfterDrop         8    C4   응답 결과 표시      칸에 놓은 카드가 글자 없는 작은 점으로만 보임
+ *   지표              결함 방식                                         초등   중등
+ *   정보 선별          응답 영역 아래 풀이와 무관한 덧붙임 지식 상자            E01    M01
+ *   장식 절제          문두 옆, 문두보다 큰 정지 캐릭터                       E02    M02
+ *   색 외 구분 단서     그림 요소를 색으로만 구분, 문항도 색 이름으로만 가리킴     E03    M03
+ *   핵심 정보 강조      문두 어구마다 다른 강조 → 핵심 조건이 묻힘              E04    M04
+ *   지문·자료 참조      지문 팝업이 응답 영역을 덮음(문두는 가리지 않음)          E05    M05
+ *   관련 정보 근접 배치  비교할 두 자료를 화면 대각선 끝에 떨어뜨림               E06    M06
+ *   응답 방식 인지      입력 칸이 본문 괄호와 똑같이 보이고 안내 없음             E07    M07
+ *   응답 결과 표시      칸에 놓은 카드가 글자 없는 작은 점으로만 보임             E08    M08
  */
 const DEFECTS = {
-  infoTrivia:          { on: true, item: 'q01', criterion: 'C1', indicator: '정보 선별' },
-  bigMascot:           { on: true, item: 'q02', criterion: 'C1', indicator: '장식 절제' },
-  colorOnlyArrows:     { on: true, item: 'q03', criterion: 'C2', indicator: '색 외 구분 단서' },
-  overEmphasis:        { on: true, item: 'q04', criterion: 'C2', indicator: '핵심 정보 강조' },
-  popupCoversResponse: { on: true, item: 'q05', criterion: 'C3', indicator: '지문·자료 참조' },
-  farApartFigures:     { on: true, item: 'q06', criterion: 'C3', indicator: '관련 정보 근접 배치' },
-  hiddenInputBlank:    { on: true, item: 'q07', criterion: 'C4', indicator: '응답 방식 인지' },
-  dotAfterDrop:        { on: true, item: 'q08', criterion: 'C4', indicator: '응답 결과 표시' }
+  E01: { on: true, criterion: 'C1', indicator: '정보 선별' },
+  E02: { on: true, criterion: 'C1', indicator: '장식 절제' },
+  E03: { on: true, criterion: 'C2', indicator: '색 외 구분 단서' },
+  E04: { on: true, criterion: 'C2', indicator: '핵심 정보 강조' },
+  E05: { on: true, criterion: 'C3', indicator: '지문·자료 참조' },
+  E06: { on: true, criterion: 'C3', indicator: '관련 정보 근접 배치' },
+  E07: { on: true, criterion: 'C4', indicator: '응답 방식 인지' },
+  E08: { on: true, criterion: 'C4', indicator: '응답 결과 표시' },
+  M01: { on: true, criterion: 'C1', indicator: '정보 선별' },
+  M02: { on: true, criterion: 'C1', indicator: '장식 절제' },
+  M03: { on: true, criterion: 'C2', indicator: '색 외 구분 단서' },
+  M04: { on: true, criterion: 'C2', indicator: '핵심 정보 강조' },
+  M05: { on: true, criterion: 'C3', indicator: '지문·자료 참조' },
+  M06: { on: true, criterion: 'C3', indicator: '관련 정보 근접 배치' },
+  M07: { on: true, criterion: 'C4', indicator: '응답 방식 인지' },
+  M08: { on: true, criterion: 'C4', indicator: '응답 결과 표시' }
 };
 
 // ===================== 5. 평정 대상 문항 =====================
 /*
- * 12문항의 화면(지문·발문·선택지·그림·정답)은 교사 화면 쪽 items/items.js 에 있습니다.
- * 여기에는 시트 기록에 쓰는 정보만 둡니다. id 는 items.js 의 id 와 같아야 합니다(checkConfig 로 확인).
- *
- *   번호  학교급 교과  형식        대상 지표
- *   1    초    과학  끌어 놓기    정보 선별
- *   2    초    국어  선택형      장식 절제
- *   3    중    과학  선 잇기     색 외 구분 단서
- *   4    중    수학  선택형      핵심 정보 강조
- *   5    중    국어  선 잇기     지문·자료 참조
- *   6    초    수학  단답형      관련 정보 근접 배치
- *   7    초    사회  단답형      응답 방식 인지
- *   8    중    사회  끌어 놓기    응답 결과 표시
- *   9    중    국어  단답형      결함 없음
- *   10   초    수학  끌어 놓기    결함 없음
- *   11   중    과학  선택형      결함 없음
- *   12   초    사회  선 잇기     결함 없음
- *   분포: 초 6·중 6 / 교과마다 3(결함 2 + 결함 없음 1) / 형식마다 3
- *
+ * 24문항의 화면(지문·발문·선택지·그림·정답)은 교사 화면 쪽 items/items.js 에 있습니다.
+ * 여기에는 시트 기록에 쓰는 정보만 둡니다. id 는 items.js 의 id 와 같아야 합니다.
+ * 각 세트: 교과마다 3문항(결함 2 + 결함 없음 1), 응답 형식마다 3문항, 준거마다 결함 2개는 서로 다른 형식.
  * 정답은 교사 화면이 [정답 확인]과 시트의 correct 열 계산에 함께 씁니다(items.js).
  */
 const ITEMS = [
-  { id: 'q01', no: 1,  school: '초', subject: '과학', type: 'drag',   defect: 'infoTrivia' },
-  { id: 'q02', no: 2,  school: '초', subject: '국어', type: 'choice', defect: 'bigMascot' },
-  { id: 'q03', no: 3,  school: '중', subject: '과학', type: 'match',  defect: 'colorOnlyArrows' },
-  { id: 'q04', no: 4,  school: '중', subject: '수학', type: 'choice', defect: 'overEmphasis' },
-  { id: 'q05', no: 5,  school: '중', subject: '국어', type: 'match',  defect: 'popupCoversResponse' },
-  { id: 'q06', no: 6,  school: '초', subject: '수학', type: 'short',  defect: 'farApartFigures' },
-  { id: 'q07', no: 7,  school: '초', subject: '사회', type: 'short',  defect: 'hiddenInputBlank' },
-  { id: 'q08', no: 8,  school: '중', subject: '사회', type: 'drag',   defect: 'dotAfterDrop' },
-  { id: 'q09', no: 9,  school: '중', subject: '국어', type: 'short',  defect: '' },
-  { id: 'q10', no: 10, school: '초', subject: '수학', type: 'drag',   defect: '' },
-  { id: 'q11', no: 11, school: '중', subject: '과학', type: 'choice', defect: '' },
-  { id: 'q12', no: 12, school: '초', subject: '사회', type: 'match',  defect: '' }
+  // 초등 세트
+  { id: 'E01', set: 'E', no: 1,  school: '초', subject: '과학', type: 'drag' },
+  { id: 'E02', set: 'E', no: 2,  school: '초', subject: '국어', type: 'choice' },
+  { id: 'E03', set: 'E', no: 3,  school: '초', subject: '과학', type: 'choice' },
+  { id: 'E04', set: 'E', no: 4,  school: '초', subject: '수학', type: 'short' },
+  { id: 'E05', set: 'E', no: 5,  school: '초', subject: '국어', type: 'match' },
+  { id: 'E06', set: 'E', no: 6,  school: '초', subject: '수학', type: 'short' },
+  { id: 'E07', set: 'E', no: 7,  school: '초', subject: '사회', type: 'short' },
+  { id: 'E08', set: 'E', no: 8,  school: '초', subject: '사회', type: 'drag' },
+  { id: 'E09', set: 'E', no: 9,  school: '초', subject: '국어', type: 'choice' },
+  { id: 'E10', set: 'E', no: 10, school: '초', subject: '수학', type: 'drag' },
+  { id: 'E11', set: 'E', no: 11, school: '초', subject: '과학', type: 'match' },
+  { id: 'E12', set: 'E', no: 12, school: '초', subject: '사회', type: 'match' },
+  // 중등 세트
+  { id: 'M01', set: 'M', no: 1,  school: '중', subject: '사회', type: 'drag' },
+  { id: 'M02', set: 'M', no: 2,  school: '중', subject: '국어', type: 'choice' },
+  { id: 'M03', set: 'M', no: 3,  school: '중', subject: '과학', type: 'match' },
+  { id: 'M04', set: 'M', no: 4,  school: '중', subject: '수학', type: 'choice' },
+  { id: 'M05', set: 'M', no: 5,  school: '중', subject: '국어', type: 'match' },
+  { id: 'M06', set: 'M', no: 6,  school: '중', subject: '과학', type: 'short' },
+  { id: 'M07', set: 'M', no: 7,  school: '중', subject: '수학', type: 'short' },
+  { id: 'M08', set: 'M', no: 8,  school: '중', subject: '사회', type: 'drag' },
+  { id: 'M09', set: 'M', no: 9,  school: '중', subject: '국어', type: 'short' },
+  { id: 'M10', set: 'M', no: 10, school: '중', subject: '수학', type: 'drag' },
+  { id: 'M11', set: 'M', no: 11, school: '중', subject: '과학', type: 'choice' },
+  { id: 'M12', set: 'M', no: 12, school: '중', subject: '사회', type: 'match' }
 ];
+const SETS = ['E', 'M'];
 
 // 참여 코드 생성 설정: generateCodes 실행 전에 바꿔 주세요
 const CODE_BATCH = {
@@ -290,15 +306,6 @@ function getStudy() {
   return { study: STUDY, survey: SURVEY, demo: DEMO, items: [] };
 }
 
-/**
- * 교사 화면에 보낼 문항 (주어진 id 차례대로)
- * ※ 대상 준거·지표는 보내지 않습니다. 화면에는 문항 id 와 결함 켜짐/꺼짐(defects)만 갑니다.
- */
-function clientItems_(ids) {
-  const byId = itemsById_();
-  return ids.filter(id => byId[id]).map(id => ({ id: id }));
-}
-
 /** 교사 화면에 보낼 결함 상태 { 결함 이름: true/false } */
 function clientDefects_() {
   const out = {};
@@ -308,16 +315,15 @@ function clientDefects_() {
 
 /**
  * 참여 코드 확인
- * - 처음 쓰는 코드: 문항 순서를 정하고 기록
+ * - 처음 쓰는 코드: 세트마다 문항 순서를 정하고 기록 (어느 세트를 볼지는 교사 화면이 기본 정보 답으로 정함)
  * - 제출 전 다시 들어온 코드: 같은 순서로 재시작, attempts +1
  * - 제출을 마친 코드: 거절
- * (세 번째 인자 form 은 예전 검사지 A·B 용이라 지금은 쓰지 않습니다)
+ * 돌려주는 것: orders = { E: [문항 id…], M: [문항 id…] }, defects = { 문항 id: true/false }
  */
 function assignParticipant(preview, code) {
   const stamp = new Date().toISOString();
   if (preview) {
-    const order = makeOrder_();
-    return { ok: true, pid: newPid_(), form: '', order: order, items: clientItems_(order), defects: clientDefects_(),
+    return { ok: true, pid: newPid_(), orders: makeOrders_(), defects: clientDefects_(),
              test: true, assignedAt: stamp, code: '' };
   }
 
@@ -335,16 +341,15 @@ function assignParticipant(preview, code) {
 
     if (v[2] === 'started') {
       sh.getRange(found.row, 6).setValue(Number(v[5] || 1) + 1);
-      const again = String(v[7]).split(',');
-      return { ok: true, pid: String(v[3]), form: '', order: again, items: clientItems_(again), defects: clientDefects_(),
+      return { ok: true, pid: String(v[3]), orders: parseOrders_(v[7]), defects: clientDefects_(),
                test: false, assignedAt: stamp, code: code, resumed: true };
     }
 
     const pid = newPid_();
-    const order = makeOrder_();
+    const orders = makeOrders_();
     sh.getRange(found.row, 3, 1, 4).setValues([['started', pid, new Date(), 1]]);
-    sh.getRange(found.row, 8).setValue(order.join(','));
-    return { ok: true, pid: pid, form: '', order: order, items: clientItems_(order), defects: clientDefects_(),
+    sh.getRange(found.row, 8).setValue(formatOrders_(orders));
+    return { ok: true, pid: pid, orders: orders, defects: clientDefects_(),
              test: false, assignedAt: stamp, code: code };
   } finally {
     lock.releaseLock();
@@ -375,7 +380,7 @@ function submit(r) {
     // participants
     const finalCols = allFinalKeys_().map(k => (r.final && r.final[k]) || '');
     ss.getSheetByName('participants').appendRow([
-      new Date(), r.pid, r.test, r.test ? '' : normalizeCode_(r.code), batch, STUDY.toolVersion, attempts,
+      new Date(), r.pid, r.test, r.test ? '' : normalizeCode_(r.code), batch, r.level || '', STUDY.toolVersion, attempts,
       r.assignedAt, r.startedAt, r.finishedAt,
       Math.round((new Date(r.finishedAt) - new Date(r.startedAt)) / 1000),
       r.device.width, r.device.height, r.device.ua
@@ -388,10 +393,10 @@ function submit(r) {
     const itemRows = [];
     r.items.forEach(it => {
       const def = byId[it.id];
-      const df = def.defect ? DEFECTS[def.defect] : null;
-      const on = df ? !!seen[def.defect] : false;
-      const tag = [it.id, def.no, def.school, def.subject, def.type,
-                   df ? df.criterion : '', df ? df.indicator : '', def.defect || '', df ? on : ''];
+      const df = DEFECTS[it.id] || null;
+      const on = df ? !!seen[it.id] : false;
+      const tag = [it.id, def.set, def.no, def.school, def.subject, def.type,
+                   df ? df.criterion : '', df ? df.indicator : '', df ? on : ''];
       ratingKeys_().forEach(k => {
         const flawed = !!(df && on && df.criterion === k.key);
         ratingRows.push([r.pid, r.test, batch].concat(tag, [it.pos, k.key, k.name, flawed, it.ratings[k.key]]));
@@ -434,23 +439,24 @@ function setup() {
   const ss = SpreadsheetApp.create(STUDY.title + ' 응답 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd-HHmm'));
   const p = ss.getSheets()[0];
   p.setName('participants');
-  // defects = 이 참여자가 본 결함 상태 {결함 이름: true/false}
+  // level = 평정한 세트(E 초등 / M 중등), defects = 이 참여자가 본 결함 상태 {문항 id: true/false}
   p.appendRow([
-    'saved_at', 'pid', 'test', 'code', 'batch', 'tool_version', 'attempts',
+    'saved_at', 'pid', 'test', 'code', 'batch', 'level', 'tool_version', 'attempts',
     'assigned_at', 'started_at', 'finished_at', 'duration_sec',
     'viewport_w', 'viewport_h', 'user_agent'
   ].concat(DEMO.map(d => d.key))
    .concat(['item_order', 'defects'])
    .concat(allFinalKeys_()));
 
-  // item_id·item_no = 문항, school·subject·type = 학교급·교과·응답 형식
-  // target_criterion·indicator·defect = 결함 문항이 건드린 준거·지표·결함 이름 (결함 없는 문항은 빈칸)
+  // item_id = 문항(E01~E12, M01~M12), set·item_no = 세트와 세트 안 설계 번호, school·subject·type = 학교급·교과·응답 형식
+  // target_criterion·indicator = 결함 문항이 건드린 준거·지표 (결함 없는 문항은 빈칸)
   // defect_on = 이 참여자에게 그 결함이 켜져 있었는가 (결함 없는 문항은 빈칸)
   // flawed = 이 준거에 결함을 넣은 화면이었는가 (defect_on 이고 criterion 이 target_criterion 일 때만 TRUE)
-  // FACETS 국면은 평정자(pid) × 문항(item_id) × 준거(criterion)로 둡니다. 모든 참여자가 같은 12문항을 봅니다.
+  // FACETS 국면은 평정자(pid) × 문항(item_id) × 준거(criterion)로 둡니다. 세트(E·M)가 다르면 공통 문항이 없으므로
+  // 세트별로 따로 분석하거나, 지표(indicator)·결함 여부(flawed)를 국면으로 묶어 견주세요.
   ss.insertSheet('ratings').appendRow([
-    'pid', 'test', 'batch', 'item_id', 'item_no', 'school', 'subject', 'type',
-    'target_criterion', 'indicator', 'defect', 'defect_on',
+    'pid', 'test', 'batch', 'item_id', 'set', 'item_no', 'school', 'subject', 'type',
+    'target_criterion', 'indicator', 'defect_on',
     'position', 'criterion', 'criterion_name', 'flawed', 'score'
   ]);
   // visible_sec = 문항 화면을 본 시간 전체(풀이 + 평정). solve_sec = 첫 평정 전 마지막 조작까지(풀이 시간)
@@ -458,8 +464,8 @@ function setup() {
   // passage_opens = 지문 팝업을 연 횟수(5번), answer_checks = [정답 확인]을 누른 횟수, scratch_opens = 연습장을 연 횟수
   // correct = 마지막 응답이 정답인가 (1/0, 풀지 않았으면 빈칸)
   ss.insertSheet('items').appendRow([
-    'pid', 'test', 'batch', 'item_id', 'item_no', 'school', 'subject', 'type',
-    'target_criterion', 'indicator', 'defect', 'defect_on',
+    'pid', 'test', 'batch', 'item_id', 'set', 'item_no', 'school', 'subject', 'type',
+    'target_criterion', 'indicator', 'defect_on',
     'position', 'visible_sec', 'visits', 'first_interaction_ms', 'interactions', 'interacted',
     'passage_opens', 'answer_checks', 'scratch_opens',
     'solve_sec', 'first_rating_sec', 'last_rating_sec', 'late_interactions',
@@ -496,28 +502,37 @@ function generateCodes() {
 
 /**
  * 설정 점검 — setup 이 먼저 부르고, 결함·문항 설정을 고친 뒤 직접 실행해도 됩니다.
- * 결함마다 문항이 있는지, 준거별 2개·서로 다른 지표인지, 지표 이름이 SURVEY 의 지표와 같은지 확인합니다.
+ * 세트마다 문항 12개·결함 8개(준거별 2개, 서로 다른 지표)인지, 두 세트가 같은 지표 8개를 다루는지,
+ * 결함의 지표 이름이 SURVEY 의 지표와 같은지, levelFrom 이 DEMO 와 맞는지 확인합니다.
  */
 function checkConfig() {
   const byId = itemsById_();
   const errs = [];
-  const perCrit = {}, inds = {};
   const allInds = {};
   SURVEY.criteria.forEach(c => (c.indicators || []).forEach(x => { allInds[x.name] = c.key; }));
-  Object.keys(DEFECTS).forEach(k => {
-    const d = DEFECTS[k];
-    if (!byId[d.item]) errs.push(k + ': 문항 ' + d.item + ' 이 ITEMS 에 없음');
-    else if (byId[d.item].defect !== k) errs.push(k + ': ITEMS 의 ' + d.item + ' defect 가 ' + k + ' 가 아님');
-    if (allInds[d.indicator] !== d.criterion) errs.push(k + ': 지표 "' + d.indicator + '" 가 ' + d.criterion + ' 의 지표가 아님');
-    perCrit[d.criterion] = (perCrit[d.criterion] || 0) + 1;
-    if (inds[d.indicator]) errs.push(k + ': 지표 "' + d.indicator + '" 가 겹침');
-    inds[d.indicator] = true;
-  });
-  SURVEY.criteria.forEach(c => { if (perCrit[c.key] !== 2) errs.push(c.key + ': 결함 문항이 ' + (perCrit[c.key] || 0) + '개 (2개여야 함)'); });
   const nInd = Object.keys(allInds).length;
   if (nInd !== 14) errs.push('지표가 ' + nInd + '개 (14개여야 함)');
+  const indSets = {};
+  SETS.forEach(set => {
+    const ids = ITEMS.filter(it => it.set === set).map(it => it.id);
+    if (ids.length !== 12) errs.push(set + ' 세트 문항이 ' + ids.length + '개 (12개여야 함)');
+    const perCrit = {}, inds = {};
+    ids.filter(id => DEFECTS[id]).forEach(id => {
+      const d = DEFECTS[id];
+      if (allInds[d.indicator] !== d.criterion) errs.push(id + ': 지표 "' + d.indicator + '" 가 ' + d.criterion + ' 의 지표가 아님');
+      perCrit[d.criterion] = (perCrit[d.criterion] || 0) + 1;
+      if (inds[d.indicator]) errs.push(id + ': ' + set + ' 세트 안에서 지표 "' + d.indicator + '" 가 겹침');
+      inds[d.indicator] = true;
+    });
+    SURVEY.criteria.forEach(c => { if (perCrit[c.key] !== 2) errs.push(set + ' 세트 ' + c.key + ': 결함 문항이 ' + (perCrit[c.key] || 0) + '개 (2개여야 함)'); });
+    indSets[set] = Object.keys(inds).sort().join(',');
+  });
+  if (indSets.E !== indSets.M) errs.push('두 세트가 다루는 지표가 다름');
+  Object.keys(DEFECTS).forEach(id => { if (!byId[id]) errs.push('DEFECTS 의 ' + id + ' 가 ITEMS 에 없음'); });
+  const demo = DEMO.find(d => d.key === STUDY.levelFrom.key);
+  if (!demo || demo.choices.length !== STUDY.levelFrom.sets.length) errs.push('STUDY.levelFrom 이 DEMO 의 선택지 수와 맞지 않음');
   if (errs.length) throw new Error('설정 오류:\n' + errs.join('\n'));
-  Logger.log('설정 점검 통과: 문항 ' + ITEMS.length + '개, 결함 ' + Object.keys(DEFECTS).length + '개 (켜짐 ' +
+  Logger.log('설정 점검 통과: 문항 ' + ITEMS.length + '개(세트 ' + SETS.length + '개), 결함 ' + Object.keys(DEFECTS).length + '개 (켜짐 ' +
              Object.keys(DEFECTS).filter(k => DEFECTS[k].on).length + '개), 지표 ' + nInd + '개');
 }
 
@@ -536,10 +551,29 @@ function itemsById_() {
   return byId;
 }
 
-/** 모든 참여자가 같은 12문항을 본다. STUDY.shuffleItems 면 사람마다 순서만 섞는다 */
-function makeOrder_() {
-  const ids = ITEMS.map(it => it.id);
-  return STUDY.shuffleItems ? shuffle_(ids) : ids;
+/** 세트마다 문항 순서를 정한다. STUDY.shuffleItems 면 사람마다 순서만 섞는다 → { E: [...], M: [...] } */
+function makeOrders_() {
+  const out = {};
+  SETS.forEach(set => {
+    const ids = ITEMS.filter(it => it.set === set).map(it => it.id);
+    out[set] = STUDY.shuffleItems ? shuffle_(ids) : ids;
+  });
+  return out;
+}
+
+/** codes 탭 item_order 열: 'E:E03,E01,…|M:M07,…' */
+function formatOrders_(orders) {
+  return SETS.map(set => set + ':' + orders[set].join(',')).join('|');
+}
+
+function parseOrders_(text) {
+  const out = {};
+  String(text || '').split('|').forEach(part => {
+    const k = part.slice(0, part.indexOf(':'));
+    if (k) out[k] = part.slice(part.indexOf(':') + 1).split(',').filter(Boolean);
+  });
+  if (SETS.some(set => !out[set] || !out[set].length)) return makeOrders_();   // 기록이 망가졌으면 새로 정함
+  return out;
 }
 
 function findCode_(sh, code) {

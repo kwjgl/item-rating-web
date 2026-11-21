@@ -89,6 +89,7 @@
     // ---- 플랫폼 틀 ----
     $('.p-subject', F).textContent = it.subject;
     $('.p-title', F).textContent = `${it.school === '초' ? '초등학교' : '중학교'} ${it.subject} 평가`;
+    // ※ 번호 칸·문항 번호는 이 세트 안에서 '몇 번째로 보이는가'(pos)이다. 설계 번호(E01 등)는 화면에 보이지 않는다.
     $('.p-no', F).textContent = `${o.pos}번`;
     const nums = [];
     for (let i = 0; i < o.total; i++) {
@@ -129,7 +130,8 @@
 
     function mountChoice() {
       const ol = $('[data-choices]', root);
-      ol.innerHTML = it.choices.map((c, i) =>
+      const choices = typeof it.choices === 'function' ? it.choices(D) : it.choices;
+      ol.innerHTML = choices.map((c, i) =>
         `<li><button type="button" class="i-choice" data-v="${i}" aria-pressed="false"><span class="i-mark">${CIRC[i]}</span><span class="i-ctext">${c}</span></button></li>`).join('');
       const paint = () => $$('.i-choice', ol).forEach(b => {
         const sel = Number(b.dataset.v) === resp;
