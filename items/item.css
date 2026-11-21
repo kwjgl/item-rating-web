@@ -1,30 +1,27 @@
 /* =========================================================
-   평정용 문항 화면
-   - 앞부분: 바깥 틀(창 맞추기)과 플랫폼 공통 요소 — 평정 대상 아님
-   - 뒷부분: 문항 화면(.it) — 평정 대상. 결함이 꺼진 상태가 14개 지표를 모두 충족하는 기본값이다.
+   문항 화면 + 플랫폼 공통 요소 (items/runtime.js 가 그림)
+   미리보기(items/index.html)와 평정 조사 화면(/index.html)이 함께 쓴다.
+   - .p-* : 플랫폼 공통 요소(연습장·문항 번호·정답 확인) — 평정 대상 아님
+   - .it  : 문항 화면 — 평정 대상. 결함이 꺼진 상태가 14개 지표를 모두 충족하는 기본값이다.
    ========================================================= */
-:root {
+.p-frame {
   --sans: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --serif: 'Noto Serif KR', 'AppleMyungjo', 'Batang', serif;
   --blue: #2E5FA8;
   --blue-soft: #EAF1FC;
+  position: absolute; inset: 0; display: flex; flex-direction: column; background: #DDE3EA;
+  font-family: var(--sans); color: #1E2530; word-break: keep-all; text-align: left;
 }
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
-body { background: #1F242B; font-family: var(--sans); color: #1E2530; word-break: keep-all; }
-button { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid #F59E0B; outline-offset: 2px; }
-
-#wrap { display: flex; height: 100vh; height: 100dvh; }
-#stage { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; }
-#screen { position: relative; overflow: hidden; border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
-#canvas { position: absolute; top: 0; left: 0; width: 1280px; height: 800px; transform-origin: top left;
-          display: flex; flex-direction: column; background: #DDE3EA; }
-#ghostHost .ghost { position: fixed; z-index: 1000; pointer-events: none; transform-origin: center;
-                    box-shadow: 0 8px 20px rgba(0, 0, 0, .28); font-family: var(--sans); font-size: 23px; }
+.p-frame *, .p-frame *::before, .p-frame *::after { box-sizing: border-box; }
+.p-frame button { font: inherit; color: inherit; }
+.p-frame :focus-visible { outline: 3px solid #F59E0B; outline-offset: 2px; }
+/* 끄는 동안 손가락을 따라다니는 카드 (문항 화면 밖 body 에 붙음) */
+#ghostHost .ghost { font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; box-sizing: border-box;
+                    position: fixed; z-index: 1000; pointer-events: none; transform-origin: center; color: #1E2530;
+                    box-shadow: 0 8px 20px rgba(0, 0, 0, .28); font-size: 23px; }
 
 /* ---------- 플랫폼 공통 요소 (평정 대상 아님) ---------- */
-.p-top { flex: none; height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 18px;
+.p-top { font-family: var(--sans); flex: none; height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 18px;
          background: #263445; color: #fff; }
 .p-subject { padding: 4px 14px; border-radius: 999px; background: #4C7BD0; font-weight: 700; font-size: 16px; }
 .p-title { font-size: 16px; opacity: .9; }
@@ -34,7 +31,7 @@ button { font: inherit; color: inherit; }
 .p-tool.on { background: #F59E0B; border-color: #F59E0B; color: #1E2530; font-weight: 700; }
 .p-body { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; }
 .p-main { position: relative; flex: 1; min-width: 0; background: #fff; border-radius: 12px; overflow: hidden; }
-#area { position: absolute; inset: 0; }
+.p-area { position: absolute; inset: 0; }
 .p-side { flex: none; width: 232px; background: #F4F6F9; border-radius: 12px; padding: 14px;
           display: flex; flex-direction: column; gap: 12px; }
 .p-side-t { font-weight: 700; font-size: 15px; color: #3B4656; }
@@ -54,20 +51,6 @@ button { font: inherit; color: inherit; }
                  padding: 6px 8px 6px 14px; border-radius: 10px; background: #263445; color: #fff; font-size: 15px; }
 .p-scratch-bar button { min-height: 36px; padding: 0 12px; border-radius: 7px; border: 0; background: #fff; color: #1E2530; font-size: 15px; cursor: pointer; }
 
-/* 연구자 설정 칸 (?panel=1) */
-#rpanel { flex: none; width: 360px; overflow-y: auto; background: #fff; padding: 18px 18px 40px; font-size: 14px; line-height: 1.5; }
-#rpanel h2 { margin: 0 0 6px; font-size: 18px; }
-.rp-note { color: #5B6573; margin: 0 0 12px; }
-.rp-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.rp-btns button, .rp-go { border: 1px solid #C9D0D9; background: #F7F9FB; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-.rp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.rp-list li { border: 1px solid #E1E6EC; border-radius: 8px; padding: 8px 10px; }
-.rp-list li.cur { border-color: #2E5FA8; background: #F4F8FE; }
-.rp-go { font-weight: 700; }
-.rp-ind { margin: 6px 0 2px; font-weight: 700; color: #2E5FA8; }
-.rp-sw { display: flex; align-items: center; gap: 6px; }
-.rp-what { color: #5B6573; font-size: 13px; }
-code { font-size: 12px; background: #EEF1F4; padding: 1px 4px; border-radius: 4px; }
 
 /* =========================================================
    문항 화면 (평정 대상)

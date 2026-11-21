@@ -7,50 +7,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="page.css">
+<link rel="stylesheet" href="item.css">
 </head>
 <body>
 <div id="wrap">
   <div id="stage">
-    <div id="screen">
-      <!-- 1280×800 고정 캔버스 (11인치 태블릿 화면). 창 크기에 맞춰 통째로 확대·축소된다. -->
-      <div id="canvas">
-        <!-- ===== 플랫폼 공통 요소: 평정 대상 아님 ===== -->
-        <header class="p-top">
-          <span class="p-subject" id="pSubject"></span>
-          <span class="p-title" id="pTitle"></span>
-          <span class="p-no" id="pNo"></span>
-          <button type="button" class="p-tool" id="pScratch" aria-pressed="false">✎ 연습장</button>
-        </header>
-        <div class="p-body">
-          <!-- ===== 평정 대상 영역: 문항 화면 ===== -->
-          <main class="p-main" aria-label="문항 화면">
-            <div id="area"></div>
-            <div id="scratch" class="p-scratch" hidden>
-              <canvas id="scratchCanvas" aria-label="연습장"></canvas>
-              <div class="p-scratch-bar">
-                <span>연습장</span>
-                <button type="button" id="scratchClear">모두 지우기</button>
-                <button type="button" id="scratchClose">닫기</button>
-              </div>
-            </div>
-          </main>
-          <!-- ===== 플랫폼 공통 요소 ===== -->
-          <aside class="p-side">
-            <div class="p-side-t">문항 번호</div>
-            <div class="p-nums" id="pNums"></div>
-            <div class="p-feedback" id="pFeedback" role="status" aria-live="polite"></div>
-            <button type="button" class="p-check" id="pCheck">정답 확인</button>
-          </aside>
-        </div>
-      </div>
-    </div>
+    <!-- 1280×800 고정 캔버스 (11인치 태블릿 화면). 창 크기에 맞춰 통째로 확대·축소된다.
+         플랫폼 틀과 문항 화면은 runtime.js 가 이 안에 그린다. -->
+    <div id="screen"><div id="canvas"></div></div>
   </div>
   <aside id="rpanel" hidden></aside>
 </div>
-<div id="ghostHost"></div>
 <script src="config.js"></script>
 <script src="items.js"></script>
+<script src="runtime.js"></script>
 <script src="engine.js"></script>
 </body>
 </html>

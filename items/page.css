@@ -1,0 +1,33 @@
+/* 미리보기 페이지(items/index.html) 전용 — 창 맞추기와 연구자 설정 칸.
+   평정 조사 화면(/index.html)은 이 파일을 쓰지 않는다. */
+:root {
+  --sans: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --serif: 'Noto Serif KR', 'AppleMyungjo', 'Batang', serif;
+  --blue: #2E5FA8;
+  --blue-soft: #EAF1FC;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: #1F242B; font-family: var(--sans); color: #1E2530; word-break: keep-all; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid #F59E0B; outline-offset: 2px; }
+
+#wrap { display: flex; height: 100vh; height: 100dvh; }
+#stage { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; }
+#screen { position: relative; overflow: hidden; border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+#canvas { position: absolute; top: 0; left: 0; width: 1280px; height: 800px; transform-origin: top left; }
+
+/* 연구자 설정 칸 (?panel=1) */
+#rpanel { flex: none; width: 360px; overflow-y: auto; background: #fff; padding: 18px 18px 40px; font-size: 14px; line-height: 1.5; }
+#rpanel h2 { margin: 0 0 6px; font-size: 18px; }
+.rp-note { color: #5B6573; margin: 0 0 12px; }
+.rp-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.rp-btns button, .rp-go { border: 1px solid #C9D0D9; background: #F7F9FB; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.rp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rp-list li { border: 1px solid #E1E6EC; border-radius: 8px; padding: 8px 10px; }
+.rp-list li.cur { border-color: #2E5FA8; background: #F4F8FE; }
+.rp-go { font-weight: 700; }
+.rp-ind { margin: 6px 0 2px; font-weight: 700; color: #2E5FA8; }
+.rp-sw { display: flex; align-items: center; gap: 6px; }
+.rp-what { color: #5B6573; font-size: 13px; }
+code { font-size: 12px; background: #EEF1F4; padding: 1px 4px; border-radius: 4px; }
