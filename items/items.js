@@ -209,10 +209,10 @@
   const hTable = (h1, h2, names, values) => `<table class="i-table wide"><tbody>
     <tr><th>${h1}</th>${names.map(n => `<td>${n}</td>`).join('')}</tr>
     <tr><th>${h2}</th>${values.map(v => `<td>${v}</td>`).join('')}</tr></tbody></table>`;
-  // 표(필요한 자료)와, 결함이 켜지면 같은 수치의 막대그래프(반복)를 나란히
-  const tableWithRepeat = (on, table, graph) => on
-    ? `<div class="i-row rep"><div class="i-data fig table"${el('data', '표')}>${table}</div><div class="i-data fig"${el('graph', '막대그래프')}>${graph}</div></div>`
-    : `<div class="i-data fig table" style="max-width:720px"${el('data', '표')}>${table}</div>`;
+  // 표(필요한 자료)와, 결함이 켜지면 표의 내용을 그대로 풀어 쓴 글 상자(반복)를 표 아래에.
+  // 글은 표보다 값을 견주기 어렵고 새 정보도 없어 풀이에 도움이 되지 않는다(막대그래프는 비교를 도와 '도움이 되는 반복'이라 쓰지 않음).
+  const tableWithRepeat = (on, table, prose) => `<div class="i-data fig table" style="max-width:720px"${el('data', '표')}>${table}</div>` +
+    (on ? `<p class="i-repeat"${el('repeat', '표 내용을 풀어 쓴 글')}>${prose}</p>` : '');
 
   // M06 가열 곡선. 같은 눈금(0~120 ℃, 0~10분)으로 그린 두 그래프
   function heatCurve(label, bp) {
@@ -273,7 +273,7 @@
   const DIR_POEM = '다음 시를 읽고, 물음에 답하세요.';
   const ITEMS = [
     // ======================= 초등 세트 =======================
-    // E01 ─ 과학·끌어 놓기 ─ 반복 최소화 (표를 그대로 옮긴 막대그래프)
+    // E01 ─ 과학·끌어 놓기 ─ 반복 최소화 (표의 내용을 그대로 풀어 쓴 글)
     {
       id: 'E01', set: 'E', no: 1, school: '초', subject: '과학', type: 'drag',
       cards: [
@@ -284,7 +284,7 @@
       render: D => {
         const n = ['사과', '귤', '필통', '컵', '공책', '가위'], v = [210, 95, 105, 98, 150, 85];
         return stem('표는 물체 6개의 무게를 저울로 잰 결과입니다. 100 g보다 무거운 물체와 가벼운 물체로 나누어 알맞은 칸에 끌어다 놓으세요.') +
-          tableWithRepeat(D('E01'), hTable('물체', '무게(g)', n, v), barGraph(n, v, 250, 50, '무게(g)')) +
+          tableWithRepeat(D('E01'), hTable('물체', '무게(g)', n, v), '사과의 무게는 210 g, 귤의 무게는 95 g, 필통의 무게는 105 g, 컵의 무게는 98 g, 공책의 무게는 150 g, 가위의 무게는 85 g입니다.') +
           `<section class="i-resp short-bins">${dragArea([['heavy', '100 g보다 무거운 물체'], ['light', '100 g보다 가벼운 물체']])}</section>`;
       }
     },
@@ -431,7 +431,7 @@
     },
 
     // ======================= 중등 세트 =======================
-    // M01 ─ 사회·끌어 놓기 ─ 반복 최소화 (표를 그대로 옮긴 막대그래프)
+    // M01 ─ 사회·끌어 놓기 ─ 반복 최소화 (표의 내용을 그대로 풀어 쓴 글)
     {
       id: 'M01', set: 'M', no: 1, school: '중', subject: '사회', type: 'drag',
       cards: [
@@ -442,7 +442,7 @@
       render: D => {
         const n = ['(가)', '(나)', '(다)', '(라)', '(마)', '(바)'], v = [2.3, 1.9, 2.2, 2.0, 3.4, 1.2];
         return stem('표는 나라 (가)~(바)의 합계 출산율을 나타낸 것입니다. 합계 출산율이 인구 대체 수준(2.1명)보다 높은 나라와 낮은 나라로 나누어 알맞은 칸에 끌어다 놓으세요.') +
-          tableWithRepeat(D('M01'), hTable('나라', '합계 출산율(명)', n, v.map(x => x.toFixed(1))), barGraph(n, v, 4, 1, '합계 출산율(명)')) +
+          tableWithRepeat(D('M01'), hTable('나라', '합계 출산율(명)', n, v.map(x => x.toFixed(1))), '합계 출산율은 (가)가 2.3명, (나)가 1.9명, (다)가 2.2명, (라)가 2.0명, (마)가 3.4명, (바)가 1.2명이다.') +
           `<section class="i-resp short-bins">${dragArea([['high', '2.1명보다 높은 나라'], ['low', '2.1명보다 낮은 나라']])}</section>`;
       }
     },

@@ -46,7 +46,7 @@ window.ITEM_CONFIG = {
   // 두 세트(초등 E·중등 M)는 같은 지표 8개를 같은 결함 방식으로 다룬다(내용만 학교급에 맞게 다름).
   // ※ 평정 조사에서 실제로 쓰는 값은 Code.gs 의 DEFECTS 이다. 이 파일은 미리보기 페이지의 기본값.
   defects: {
-    E01: { on: true, indicator: 'I03', what: '표의 무게 값을 그대로 옮긴 막대그래프를 표 옆에 둔다(기준선 없음, 값이 100 g 근처라 도움 안 됨)' },
+    E01: { on: true, indicator: 'I03', what: '표의 무게 값을 그대로 풀어 쓴 글 상자를 표 아래에 둔다(새 정보 없음, 표보다 견주기 어려움)' },
     E02: { on: true, indicator: 'I01', what: '문두 옆, 문두 글자보다 시각적 무게가 큰 정지 개미 캐릭터' },
     E03: { on: true, indicator: 'I05', what: '지층을 색으로만 구분하고 선택지도 색 이름뿐 (끄면 ㉠~㉣ 기호)' },
     E04: { on: true, indicator: 'I07', what: '문두 어구마다 다른 강조로 핵심 조건이 묻힘 (끄면 \'바르게 계산하면\'만 강조)' },
@@ -54,7 +54,7 @@ window.ITEM_CONFIG = {
     E06: { on: true, indicator: 'I10', what: '비교할 도형 (가)·(나)를 화면 왼쪽 위·오른쪽 아래로 떨어뜨림' },
     E07: { on: true, indicator: 'I11', what: '입력 칸이 본문 괄호와 똑같이 보이고 입력 안내가 없음' },
     E08: { on: true, indicator: 'I14', what: '칸에 놓은 카드가 글자 없는 작은 점으로만 남음 (누르는 범위는 그대로)' },
-    M01: { on: true, indicator: 'I03', what: '표의 합계 출산율을 그대로 옮긴 막대그래프를 표 옆에 둔다(기준선 없음, 값이 2.1 근처라 도움 안 됨)' },
+    M01: { on: true, indicator: 'I03', what: '표의 합계 출산율을 그대로 풀어 쓴 글 상자를 표 아래에 둔다(새 정보 없음, 표보다 견주기 어려움)' },
     M02: { on: true, indicator: 'I01', what: '문두 옆, 문두 글자보다 시각적 무게가 큰 정지 고래 캐릭터' },
     M03: { on: true, indicator: 'I05', what: '화살표를 색으로만 구분하고 잇기 칸도 색 이름뿐 (끄면 ㉠㉡㉢ 기호)' },
     M04: { on: true, indicator: 'I07', what: '문두 어구마다 다른 강조로 핵심 조건이 묻힘 (끄면 핵심 조건만 강조)' },

@@ -60,7 +60,7 @@ const STUDY = {
   // 문항·준거 기술문·결함 설정·화면을 고쳤다면 반드시 바꾸세요. 그래야 분석할 때
   // 어느 자료가 어느 판으로 모인 것인지 가를 수 있습니다.
   // ※ 교사 화면 index.html 의 SERVER.toolVersion 과 글자까지 같아야 합니다.
-  toolVersion: '준거13-1',
+  toolVersion: '준거13-2',
 
   // 앱스크립트 웹앱 주소 — 교사 화면(GitHub Pages)이 이 주소로 응답을 보냅니다.
   // 주소가 바뀌면 여기와 index.html 의 SERVER.url 을 함께 고치세요.
@@ -162,7 +162,7 @@ const DEMO = [
  * 바꾼 뒤에는 toolVersion 을 바꾸세요(시트의 defect_on 열에도 그 사람이 본 상태가 남습니다).
  *
  *   지표(id)           결함 방식                                         초등   중등
- *   반복 최소화(I03)    표의 수치를 그대로 옮긴 막대그래프(기준선 없음)          E01    M01
+ *   반복 최소화(I03)    표의 수치를 그대로 풀어 쓴 글 상자(새 정보 없음)           E01    M01
  *   불필요 요소 배제(I01) 문두 옆, 문두보다 큰 정지 캐릭터(지문과 관련된 모습)       E02    M02
  *   색 외 구분 단서     그림 요소를 색으로만 구분, 문항도 색 이름으로만 가리킴     E03    M03
  *   핵심 정보 강조      문두 어구마다 다른 강조 → 핵심 조건이 묻힘              E04    M04
@@ -173,11 +173,11 @@ const DEMO = [
  */
 // indicator = SURVEY 의 지표 id, elements = '의도한 결함 요소'(items/items.js 의 data-el 이름).
 // 교사가 '미충족'의 근거로 고른 요소에 이 중 하나가 있으면 결함 탐지, 없으면 과잉 판단으로 봅니다.
-//   요소 이름: graph(표를 옮긴 막대그래프) · mascot(캐릭터 그림) · data(지문·그림·자료) · resp(선택지·답 칸·선 잇기 칸)
+//   요소 이름: repeat(표 내용을 풀어 쓴 글) · mascot(캐릭터 그림) · data(지문·그림·자료) · resp(선택지·답 칸·선 잇기 칸)
 //             stem(문두) · popup(지문 보기 단추) · dataA·dataB(떨어진 두 자료) · bins(카드 놓는 칸) · bank(카드) · guide(안내)
 //             direction(국어 지시문 "다음 글을 읽고, 물음에 답하세요.") · other(그 밖의 요소 — 교사 메모로 확인)
 const DEFECTS = {
-  E01: { on: true, criterion: 'C1', indicator: 'I03', elements: ['graph'] },    // 표를 그대로 옮긴 막대그래프
+  E01: { on: true, criterion: 'C1', indicator: 'I03', elements: ['repeat'] },   // 표의 내용을 그대로 풀어 쓴 글
   E02: { on: true, criterion: 'C1', indicator: 'I01', elements: ['mascot'] },   // 개미 캐릭터
   E03: { on: true, criterion: 'C2', indicator: 'I05', elements: ['data', 'resp'] },   // 색으로만 구분한 지층 그림, 색 이름뿐인 선택지
   E04: { on: true, criterion: 'C2', indicator: 'I07', elements: ['stem'] },
@@ -185,7 +185,7 @@ const DEFECTS = {
   E06: { on: true, criterion: 'C3', indicator: 'I10', elements: ['dataA', 'dataB'] },
   E07: { on: true, criterion: 'C4', indicator: 'I11', elements: ['resp'] },
   E08: { on: true, criterion: 'C4', indicator: 'I14', elements: ['bins'] },
-  M01: { on: true, criterion: 'C1', indicator: 'I03', elements: ['graph'] },    // 표를 그대로 옮긴 막대그래프
+  M01: { on: true, criterion: 'C1', indicator: 'I03', elements: ['repeat'] },   // 표의 내용을 그대로 풀어 쓴 글
   M02: { on: true, criterion: 'C1', indicator: 'I01', elements: ['mascot'] },   // 고래 캐릭터
   M03: { on: true, criterion: 'C2', indicator: 'I05', elements: ['data', 'resp'] },   // 색으로만 구분한 화살표, 색 이름뿐인 잇기 칸
   M04: { on: true, criterion: 'C2', indicator: 'I07', elements: ['stem'] },
@@ -514,7 +514,7 @@ function checkConfig() {
   const errs = [];
   const allInds = {};
   SURVEY.criteria.forEach(c => (c.indicators || []).forEach(x => { allInds[x.id] = c.key; }));
-  const ELS = ['extra', 'mascot', 'graph', 'data', 'resp', 'stem', 'popup', 'dataA', 'dataB', 'bins', 'bank', 'guide', 'direction'];
+  const ELS = ['extra', 'mascot', 'repeat', 'data', 'resp', 'stem', 'popup', 'dataA', 'dataB', 'bins', 'bank', 'guide', 'direction'];
   Object.keys(DEFECTS).forEach(id => (DEFECTS[id].elements || []).forEach(k => {
     if (ELS.indexOf(k) < 0) errs.push(id + ': 알 수 없는 결함 요소 "' + k + '"');
   }));

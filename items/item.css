@@ -312,3 +312,4 @@
 .i-row.rep .i-data.fig svg { display: block; width: 100%; height: auto; max-height: 200px; }
 .short-bins .i-bin-drop { min-height: 82px; }
 .short-bins .i-bank { min-height: 66px; }
+.i-repeat { margin: -4px 0 14px 50px; max-width: 900px; padding: 10px 16px; background: #F6F7F9; border: 1px solid #E1E5EA; border-radius: 8px; }
