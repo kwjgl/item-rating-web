@@ -163,6 +163,7 @@
   .guide .g-h { font-size: 18px; margin: 28px 0 12px; }
   .g-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .g-steps li { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; }
+  .g-steps.two { grid-template-columns: repeat(2, 1fr); }
   .g-steps li + li::before { content: '→'; position: absolute; left: -12px; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 18px; }
   .g-steps b { font-size: 17px; }
   .g-n { width: 28px; height: 28px; border-radius: 8px; background: #263445; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
@@ -443,12 +444,85 @@ callServer('getStudy', []).then(
   });
 
 window.addEventListener('beforeunload', e => {
+  saveProgress();
   if (R && !R.finishedAt) { e.preventDefault(); e.returnValue = ''; }
 });
+window.addEventListener('pagehide', () => saveProgress());
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveProgress();
   if (!activeTimer) return;
   if (document.hidden) activeTimer.pause(); else activeTimer.resume();
 });
+
+// ---------- 중간 저장 ----------
+// 진행 상황을 이 기기의 브라우저 저장소에 참여 코드별로 저장한다. 같은 기기·브라우저에서 같은 코드를 다시 넣으면
+// 이어서 할 수 있다. 제출을 마치면 지운다. 미리보기(코드 없음)는 저장하지 않는다.
+// 저장 시각에 화면을 보고 있던 시간도 함께 넣으므로(문항별 visibleMs), 다시 들어와도 본 시간이 이어진다.
+let WHERE = 'start';          // 'guide' | 'demo' | 'practice' | 'main' | 'final' — 다시 들어올 자리
+let CUR = 0;                  // 연습·본 평정에서 보고 있던 문항 차례
+function saveKey(code) { return 'item-rating:' + SERVER.toolVersion + ':' + code; }
+function saveProgress() {
+  if (!R || R.test || !R.code || R.saved) return;
+  try {
+    // 보고 있는 문항의 본 시간을 지금까지로 반영해 저장(타이머는 그대로 돎)
+    const keep = k => k === '_mode' || k === '_fb';
+    const snap = JSON.stringify({ savedAt: new Date().toISOString(), where: WHERE, phase: PHASE, cur: CUR, R: R }, (k, v) => {
+      if (k.charAt(0) === '_' && !keep(k)) return undefined;
+      if (v && typeof v === 'object' && v._enter != null && typeof v.visibleMs === 'number') {
+        return Object.assign({}, v, { visibleMs: v.visibleMs + (now() - v._enter) });
+      }
+      return v;
+    });
+    localStorage.setItem(saveKey(R.code), snap);
+  } catch (e) { /* 저장소를 못 쓰는 브라우저(사생활 보호 모드 등)는 그냥 넘어간다 */ }
+}
+function loadProgress(code, pid) {
+  try {
+    const raw = localStorage.getItem(saveKey(code));
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return d && d.R && d.R.pid === pid ? d : null;   // 서버가 같은 참여자로 이어 줄 때만 쓴다
+  } catch (e) { return null; }
+}
+function clearProgress(code) { try { localStorage.removeItem(saveKey(code)); } catch (e) { /* 무시 */ } }
+// 바뀔 때마다 부르지만, 너무 잦지 않게 묶어서 저장
+let saveTimer = null;
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveProgress, 400); }
+
+/** 저장된 진행 상황이 있으면 이어서 할지 묻는다 */
+function offerResume(a, saved) {
+  const done = (saved.R.items || []).filter(isComplete).length, total = (saved.R.items || []).length;
+  const t = new Date(saved.savedAt);
+  const when = isNaN(t) ? '' : `${t.getMonth() + 1}월 ${t.getDate()}일 ${t.getHours()}시 ${String(t.getMinutes()).padStart(2, '0')}분`;
+  const pos = saved.where === 'main' ? `본 문항 ${total}개 가운데 ${done}개 평정 완료`
+    : saved.where === 'practice' ? '연습 문항 진행 중'
+    : saved.where === 'final' ? '모든 문항 평정 완료(마지막 질문 단계)' : '시작 단계';
+  shell({
+    body: `<section class="sheet guide">
+      <h1>이어서 하시겠어요?</h1>
+      <p class="lead">이 기기에 저장된 진행 상황이 있습니다.</p>
+      <table class="g-table">
+        <tr><th>진행</th><td>${esc(pos)}</td></tr>
+        <tr><th>저장 시각</th><td>${esc(when)}</td></tr>
+      </table>
+      <p class="g-note">[처음부터 다시]를 누르면 저장된 내용이 지워집니다.</p>
+    </section>`,
+    footer: `<button class="btn" id="restart">처음부터 다시</button><button class="btn primary" id="resume">이어서 하기</button>`
+  });
+  app.oninput = null;
+  app.onclick = e => {
+    if (e.target.closest('#restart')) { clearProgress(a.code); startStudy(a); return; }
+    if (!e.target.closest('#resume')) return;
+    R = saved.R;
+    R.assignedAt = a.assignedAt;
+    PHASE = saved.phase === 'practice' ? 'practice' : 'main';
+    const w = saved.where;
+    if (w === 'final') { WHERE = 'final'; renderFinal(); return; }
+    if ((w === 'main' || w === 'practice') && LIST() && LIST().length) { renderRating(Math.min(saved.cur || 0, LIST().length - 1)); return; }
+    if (w === 'demo') { renderDemo(); return; }
+    renderGuide();
+  };
+}
 
 // ---------- 설문형 화면 공통 ----------
 function formPage({ progress = 0, heading, lead = '', notice = '', fields, nextLabel = '다음', onNext }) {
@@ -544,7 +618,11 @@ function renderConsent() {
       btn.disabled = true; btn.textContent = '확인 중';
       callServer('assignParticipant', [PREVIEW, code]).then(
         a => {
-          if (a.ok) { startStudy(a); return; }
+          if (a.ok) {
+            const saved = !a.test && a.code ? loadProgress(a.code, a.pid) : null;
+            if (saved) offerResume(a, saved); else startStudy(a);
+            return;
+          }
           btn.disabled = false; btn.textContent = '시작하기';
           if (codeField) codeField.classList.add('missing');
           msg.textContent = a.reason === 'done'
@@ -607,21 +685,22 @@ function newLog(id, i) {
 // 연습을 마치면 의도한 판단을 보여 준다. 연습 기록은 분석에 넣지 않는다(서버로 보내지 않음).
 let PHASE = 'main';                              // 'practice' | 'main'
 function LIST() { return PHASE === 'practice' ? R.practice : R.items; }
-const PRACTICE_IDS = ['P1', 'P2', 'P3'];
+// 연습 2개: 결함 없는 문항(P1), 미충족·근거 고르기(P3). 가독성 연습(P2)은 items.js 에 남겨 두고 쓰지 않는다.
+const PRACTICE_IDS = ['P1', 'P3'];
 
 function startPractice() {
+  WHERE = 'practice'; CUR = 0;
   R.practice = PRACTICE_IDS.filter(id => ITEM_DEFS[id]).map(newLog);
   if (!R.practice.length) { PHASE = 'main'; renderRating(0); return; }
   PHASE = 'practice';
   shell({
     progress: 7,
     body: `<section class="sheet guide">
-      <h1>연습 문항 3개</h1>
-      <p class="lead">본 평정 전에 연습 문항 3개로 평정 방법을 익힙니다. 연습 결과는 분석에 쓰이지 않습니다.</p>
-      <ol class="g-steps">
+      <h1>연습 문항 2개</h1>
+      <p class="lead">본 평정 전에 연습 문항 2개로 평정 방법을 익힙니다. 연습 결과는 분석에 쓰이지 않습니다.</p>
+      <ol class="g-steps two">
         <li><span class="g-n">1</span><b>결함이 없는 문항</b><span>지표를 하나씩 판단해 봅니다.</span></li>
-        <li><span class="g-n">2</span><b>결함이 있는 문항</b><span>어느 지표에 어긋나는지 스스로 찾아봅니다.</span></li>
-        <li><span class="g-n">3</span><b>미충족·근거 고르기</b><span>안내에 따라 미충족을 누르고 근거 요소를 골라 봅니다.</span></li>
+        <li><span class="g-n">2</span><b>미충족·근거 고르기</b><span>안내에 따라 미충족을 누르고 근거 요소를 골라 봅니다.</span></li>
       </ol>
       <p class="g-note">문항마다 아래의 <b>① 풀기</b>에서 문항을 풀고, <b>② 평정</b>에서 지표를 판단합니다. 각 연습을 마치면 의도한 판단을 보여 드립니다.</p>
     </section>`,
@@ -632,7 +711,7 @@ function startPractice() {
 }
 
 function practiceDone() {
-  PHASE = 'main';
+  PHASE = 'main'; WHERE = 'main'; CUR = 0; saveSoon();
   shell({
     progress: 8,
     body: `<section class="sheet guide">
@@ -667,6 +746,7 @@ function practiceFeedback(log, def) {
 // ---------- 2. 안내 ----------
 // 글을 줄이고 단계 표시·화면 도식·판단 표로 보여 준다. 문구는 이 화면 코드에 있다(Code.gs 의 SURVEY.guide 는 맨 위 한 줄).
 function renderGuide() {
+  WHERE = 'guide'; saveSoon();
   const P = surveyDef();
   const nInd = allIndicators().length, nCrit = (P.criteria || []).length;
   shell({
@@ -702,7 +782,8 @@ function renderGuide() {
       <ul class="g-tips">
         ${S.study.requireInteraction ? '<li>문항을 한 번 이상 풀어 보셔야 평정 칸이 열립니다.</li>' : ''}
         <li>문항마다 아래의 <b>① 풀기</b>(문항을 크게)에서 풀고, <b>② 평정</b>(문항 + 평정 칸)에서 판단합니다. 두 단계는 언제든 오갈 수 있습니다.</li>
-        <li>본 평정 전에 <b>연습 문항 3개</b>로 방법을 익힙니다.</li>
+        <li>본 평정 전에 <b>연습 문항 2개</b>로 방법을 익힙니다.</li>
+        <li>진행 상황은 이 기기에 저장됩니다. 창이 닫혀도 같은 기기에서 참여 코드를 다시 넣으면 이어서 할 수 있습니다.</li>
         <li>더 크게 보시려면 아래의 <b>[전체 화면]</b>을 누르세요.</li>
         <li>맨 위의 번호를 눌러 다른 문항으로 오갈 수 있고, 평정은 나중에 고칠 수 있습니다.</li>
       </ul>
@@ -715,6 +796,7 @@ function renderGuide() {
 
 // ---------- 3. 기본 정보 ----------
 function renderDemo() {
+  WHERE = 'demo'; saveSoon();
   formPage({
     progress: 6,
     heading: '기본 정보',
@@ -764,6 +846,7 @@ function isComplete(log) {
 }
 
 function renderRating(cur, missingList = []) {
+  WHERE = PHASE === 'practice' ? 'practice' : 'main'; CUR = cur; saveSoon();
   if (activeTimer) activeTimer.pause();
   document.body.classList.remove('fullscreen');   // 문항을 옮기면 전체 화면은 닫음
   const n = LIST().length;
@@ -864,7 +947,7 @@ function renderRating(cur, missingList = []) {
     panel.scrollTop = 0;
   }
   function setMode(m) {
-    mode = m; log._mode = m;
+    mode = m; log._mode = m; saveSoon();
     document.getElementById('rate').className = 'rate m-' + m;
     document.body.classList.toggle('m-solve', m === 'solve');
     fitScreen();
@@ -875,6 +958,7 @@ function renderRating(cur, missingList = []) {
     if (ITEM_VIEW) ITEM_VIEW.showElements(any && mode === 'rate');   // 풀이 모드에서는 번호를 띄우지 않는다
   }
   function touched() {
+    saveSoon();
     const t = Math.round(seenMs(log));
     if (log.firstRatingMs === null) log.firstRatingMs = t;
     log.lastRatingMs = t;
@@ -905,7 +989,7 @@ function renderRating(cur, missingList = []) {
   // 평정 칸
   app.oninput = e => {
     if (e.target.id === 'comment') {
-      log.comment = e.target.value;
+      log.comment = e.target.value; saveSoon();
       e.target.closest('fieldset').classList.remove('missing');
     } else if (e.target.classList.contains('ev-note')) {
       const j = log.judgments[e.target.dataset.ind]; if (!j) return;
@@ -1043,6 +1127,7 @@ function mountItem(canvas, it, log, onFirstInteract, pos, total) {
       else if (name === 'passage') log.passageOpens++;
     },
     onChange: resp => {
+      saveSoon();
       log.response = resp;
       log.interactions++;
       if (log.firstInteractMs === null) log.firstInteractMs = Math.round(now() - log._first);
@@ -1055,6 +1140,7 @@ function mountItem(canvas, it, log, onFirstInteract, pos, total) {
 
 // ---------- 6. 마지막 질문 ----------
 function renderFinal() {
+  WHERE = 'final'; saveSoon();
   const qs = surveyDef().finalQuestions;
   formPage({
     progress: 95,
@@ -1089,6 +1175,7 @@ function submitAll() {
         return;
       }
       R.saved = true;
+      clearProgress(R.code);
       shell({
         progress: 100,
         body: `<section class="sheet"><h1>제출했습니다</h1><p class="debrief">${esc(S.study.debrief)}</p></section>`
