@@ -70,19 +70,36 @@
   // 정보 선별 결함: 풀이에 쓰이지 않는 덧붙임 지식 상자 (평범한 글상자, 그림·강조 없음)
   const extra = t => `<aside class="i-extra"${el('extra', '더 알아보기 상자')}><p class="i-extra-h">더 알아보기</p><p>${t}</p></aside>`;
   // 장식 절제 결함: 문두 옆의 큰 정지 캐릭터 (움직임·글 없음)
-  const MASCOT = `<svg class="i-mascot" viewBox="0 0 200 200" aria-hidden="true" data-el="mascot" data-el-name="캐릭터 그림">
-    <ellipse cx="100" cy="188" rx="62" ry="9" fill="#E7E2D4"/>
-    <path d="M30 118 Q8 96 18 70" stroke="#E0A419" stroke-width="10" fill="none" stroke-linecap="round"/>
-    <path d="M170 118 Q192 96 182 70" stroke="#E0A419" stroke-width="10" fill="none" stroke-linecap="round"/>
-    <line x1="100" y1="30" x2="100" y2="12" stroke="#B9831A" stroke-width="5"/>
-    <circle cx="100" cy="10" r="9" fill="#FF6B5A"/>
-    <circle cx="100" cy="106" r="78" fill="#FFC94A" stroke="#E0A419" stroke-width="5"/>
-    <ellipse cx="68" cy="96" rx="13" ry="16" fill="#3A2E1E"/><ellipse cx="132" cy="96" rx="13" ry="16" fill="#3A2E1E"/>
-    <circle cx="72" cy="90" r="4.5" fill="#fff"/><circle cx="136" cy="90" r="4.5" fill="#fff"/>
-    <ellipse cx="50" cy="126" rx="13" ry="8" fill="#FF9A7A" opacity=".75"/><ellipse cx="150" cy="126" rx="13" ry="8" fill="#FF9A7A" opacity=".75"/>
-    <path d="M76 132 Q100 156 124 132" stroke="#3A2E1E" stroke-width="6" fill="none" stroke-linecap="round"/>
-  </svg>`;
-  const stemFig = (on, h) => `<div class="i-stem with-fig"${el('stem', '문두')}><span class="i-stem-t">${h}</span>${on ? MASCOT : ''}</div>`;
+  // 장식 절제 결함: 문두 옆의 큰 정지 캐릭터 (지문 내용과 관련 있는 모습. 움직임·글자·말풍선 없음, 풀이 단서 없음)
+  const mascot = (body, name) => `<svg class="i-mascot" viewBox="0 0 200 200" aria-hidden="true" data-el="mascot" data-el-name="${name}">${body}</svg>`;
+  // E02 '개미의 더듬이' — 웃는 개미
+  const MASCOT_ANT = mascot(`
+    <ellipse cx="100" cy="190" rx="70" ry="8" fill="#E7E2D4"/>
+    <g stroke="#3B2A20" stroke-width="5" stroke-linecap="round" fill="none">
+      <path d="M78 128 L52 150 L40 176"/><path d="M92 134 L84 160 L80 184"/><path d="M110 134 L118 160 L122 184"/>
+      <path d="M124 128 L150 150 L162 176"/>
+      <path d="M84 52 Q70 20 50 14"/><path d="M110 52 Q128 20 150 16"/>
+    </g>
+    <circle cx="50" cy="14" r="7" fill="#3B2A20"/><circle cx="150" cy="16" r="7" fill="#3B2A20"/>
+    <ellipse cx="148" cy="138" rx="40" ry="32" fill="#8B4A2B"/>
+    <ellipse cx="102" cy="120" rx="24" ry="20" fill="#9C5733"/>
+    <circle cx="96" cy="78" r="38" fill="#A9603A"/>
+    <ellipse cx="82" cy="74" rx="9" ry="11" fill="#fff"/><ellipse cx="112" cy="74" rx="9" ry="11" fill="#fff"/>
+    <circle cx="84" cy="76" r="5" fill="#2A1A12"/><circle cx="114" cy="76" r="5" fill="#2A1A12"/>
+    <ellipse cx="72" cy="92" rx="8" ry="5" fill="#E98A6B" opacity=".8"/><ellipse cx="122" cy="92" rx="8" ry="5" fill="#E98A6B" opacity=".8"/>
+    <path d="M86 96 Q97 106 108 96" stroke="#2A1A12" stroke-width="4" fill="none" stroke-linecap="round"/>`, '개미 캐릭터 그림');
+  // M02 '바닷물은 왜 짤까' — 웃는 고래
+  const MASCOT_WHALE = mascot(`
+    <ellipse cx="100" cy="190" rx="76" ry="8" fill="#DCE8F2"/>
+    <path d="M100 52 Q96 30 84 22 M100 52 Q104 28 118 22 M100 52 L100 26" stroke="#7FB8E6" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M24 120 Q24 62 100 60 Q172 62 172 118 Q172 168 100 170 Q40 170 24 120 Z" fill="#4A8FD0"/>
+    <path d="M168 120 Q186 92 198 96 Q190 118 198 142 Q186 146 168 128 Z" fill="#3B7BBE"/>
+    <path d="M30 128 Q60 160 110 162 Q150 160 166 132 Q150 150 104 152 Q60 150 30 128 Z" fill="#CFE5F7"/>
+    <circle cx="66" cy="104" r="10" fill="#fff"/><circle cx="68" cy="106" r="5.5" fill="#1C2E44"/>
+    <ellipse cx="54" cy="126" rx="9" ry="5" fill="#F29C9C" opacity=".8"/>
+    <path d="M40 132 Q56 146 74 136" stroke="#1C2E44" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M96 150 Q110 168 132 158" stroke="#3B7BBE" stroke-width="5" fill="none" stroke-linecap="round"/>`, '고래 캐릭터 그림');
+  const stemFig = (fig, h) => `<div class="i-stem with-fig"${el('stem', '문두')}><span class="i-stem-t">${h}</span>${fig || ''}</div>`;
   // 근접 배치 결함: 비교할 두 자료를 왼쪽 위·오른쪽 아래로 떨어뜨림. 끄면 한 자료 상자에 나란히.
   function compare(far, stemHtml, a, b, resp, wide, names) {
     if (far) {
@@ -254,7 +271,7 @@
       render: D => split(direction(DIR_TEXT) +
           `<div class="i-data i-ptext scroll"${el('data', '지문')}><p class="i-phead">개미의 더듬이</p>
             <p class="i-para">개미에게 더듬이는 아주 중요한 기관입니다. 개미는 더듬이로 냄새를 맡아 먹이가 있는 곳을 찾습니다. 또 더듬이를 서로 맞대어 같은 집에 사는 친구인지 알아봅니다. 그래서 더듬이가 다치면 개미는 길을 잃기도 합니다.</p></div>`,
-        stemFig(D('E02'), '이 글의 중심 문장으로 알맞은 것은 무엇인가요?') + guide('choice') + CHOICES)
+        stemFig(D('E02') && MASCOT_ANT, '이 글의 중심 문장으로 알맞은 것은 무엇인가요?') + guide('choice') + CHOICES)
     },
 
     // E03 ─ 과학·선택형 ─ 색 외 구분 단서
@@ -414,7 +431,7 @@
             <p class="i-para">바다에 이른 물은 햇볕을 받아 증발하여 다시 구름이 된다. 그런데 물이 증발할 때 녹아 있던 물질은 함께 날아가지 못하고 바다에 남는다. 이 과정이 수억 년 동안 되풀이되면서 바다에는 녹아 있는 물질이 점점 쌓였고, 그 결과 바닷물이 짜게 되었다.</p>
             <p class="i-para">바다 밑에서 일어나는 화산 활동도 바닷물의 짠맛에 영향을 준다. 해저 화산이나 바다 밑에서 뜨거운 물이 솟아나는 곳에서는 염소 같은 물질이 바닷물로 나온다. 이 염소가 강물에서 온 나트륨과 만나 염화 나트륨, 곧 소금이 된다.</p>
             <p class="i-para">이처럼 바닷물이 짠 것은 육지의 물질이 강물을 타고 바다로 옮겨지고, 물만 증발하여 그 물질이 남는 일이 오랫동안 되풀이되었기 때문이다.</p></div>`,
-        stemFig(D('M02'), '이 글에서 주로 사용한 설명 방법으로 알맞은 것은?') + guide('choice') + CHOICES)
+        stemFig(D('M02') && MASCOT_WHALE, '이 글에서 주로 사용한 설명 방법으로 알맞은 것은?') + guide('choice') + CHOICES)
     },
 
     // M03 ─ 과학·선 잇기 ─ 색 외 구분 단서

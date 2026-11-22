@@ -175,9 +175,9 @@
   .ev-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .ev-chip { min-height: 36px; padding: 4px 10px; border-radius: 999px; border: 1.5px solid #E5B79B; background: #fff; font-size: 14px; cursor: pointer; }
   .ev-chip .ev-n { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; margin-right: 6px;
-                   border-radius: 5px; background: #6D28D9; color: #fff; font-size: 13px; }
+                   border-radius: 11px; background: #E0342B; color: #fff; font-size: 13px; }
   .ev-chip.on { background: #C2410C; border-color: #C2410C; color: #fff; }
-  .ev-chip.on .ev-n { background: #fff; color: #6D28D9; }
+  .ev-chip.on .ev-n { background: #fff; color: #E0342B; }
   .ev-note { width: 100%; min-height: 38px; padding: 6px 10px; border-radius: 6px; border: 1.5px solid #E5B79B; font: inherit; font-size: 14px; }
   .crit-steps b { font-size: 14px !important; }
   /* 준거 아래 지표(판단 단서) */
@@ -801,7 +801,7 @@ function panelHtml(log, P, step) {
           <div class="ind-opts">${JUDGE.map(([v, t]) =>
             `<button type="button" class="jd-btn jd-${v}" aria-pressed="false" data-ind="${x.id}" data-v="${v}">${t}</button>`).join('')}</div>
           <div class="ind-ev" hidden>
-            <p class="ev-q">근거가 된 화면 요소를 모두 고르세요. 번호는 문항 화면의 보라색 번호입니다.</p>
+            <p class="ev-q">근거가 된 화면 요소를 모두 고르세요. 번호는 문항 화면의 빨간 원 번호입니다.</p>
             <div class="ev-chips"></div>
             <input type="text" class="ev-note" data-ind="${x.id}" value="${esc(j.note || '')}" placeholder="근거를 짧게 적어 주세요 (선택)">
           </div>

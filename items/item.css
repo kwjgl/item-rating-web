@@ -39,7 +39,7 @@
 .p-num, .p-arrow { width: 36px; height: 36px; border-radius: 50%; border: 0; background: #C9D0D9; color: #fff;
                    font-size: 15px; font-weight: 700; cursor: pointer; }
 .p-num.done { background: #8EA6C9; }
-.p-num.on { background: #E8553B; }
+.p-num.on { background: #263445; }
 .p-arrow { background: transparent; color: #5B6573; font-size: 24px; font-weight: 400; }
 .p-arrow:disabled { opacity: .3; cursor: default; }
 .p-feedback { position: absolute; right: 150px; bottom: 74px; padding: 8px 14px; border-radius: 8px; font-size: 16px;
@@ -251,15 +251,15 @@
 
 /* 평정 근거 요소 번호 — 평정할 때만 문항 화면 위에 겹쳐 보인다(평정 도구 쪽 표시, 문항 화면의 일부가 아님) */
 .p-elnums { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
-.p-elnum { position: absolute; min-width: 28px; height: 28px; padding: 0 5px; border-radius: 6px;
+.p-elnum { position: absolute; min-width: 30px; height: 30px; padding: 0 4px; border-radius: 15px;
            display: flex; align-items: center; justify-content: center;
-           background: #6D28D9; color: #fff; font: 700 18px/1 'Noto Sans KR', sans-serif;
+           background: #E0342B; color: #fff; font: 700 18px/1 'Noto Sans KR', sans-serif;
            box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, .3); }
 
 /* ---------- 실제 디지털 평가 화면에 가깝게 (문항 번호·문두·선택지·좌우 칸) ---------- */
 .i-stem { display: flex; align-items: flex-start; gap: 12px; padding: 0; margin: 0 0 18px; border-bottom: 0; }
 .i-stem-t { flex: 1; padding-top: 2px; }
-.i-qno { flex: none; width: 38px; height: 38px; border-radius: 50%; background: #E8553B; color: #fff;
+.i-qno { flex: none; min-width: 38px; height: 36px; padding: 0 8px; border-radius: 8px; background: #263445; color: #fff;
          display: flex; align-items: center; justify-content: center; font: 700 20px/1 var(--sans); }
 .i-stem.with-fig { align-items: center; justify-content: flex-start; }
 .i-stem.with-fig .i-mascot { margin-left: auto; }
@@ -291,7 +291,9 @@
 .i-pane.r { padding-left: 26px; overflow: hidden; }
 .i-pane.r .i-choices, .i-pane.r .i-answer-line, .i-pane.r .i-guide, .i-pane.r .i-match { margin-left: 50px; }
 .i-direction { margin: 0; font-weight: 700; flex: none; }
-.i-pane.l .i-data { flex: 0 1 auto; min-height: 0; overflow-y: auto; background: transparent; border: 0; padding: 0 6px 0 0; }
+/* 국어 지문 박스: 지시문 아래, 박스 안에서만 스크롤 */
+.i-pane.l .i-data { flex: 0 1 auto; min-height: 0; overflow-y: auto; background: #FBFBF8; border: 1.5px solid #CDD3DA;
+                    border-radius: 10px; padding: 14px 18px; }
 .i-pane.l .i-ptext { font-size: 22px; line-height: 1.85; }
 .i-pop-card .i-direction { margin-bottom: 8px; }
 .i-match.stack { grid-template-columns: .8fr 1fr; column-gap: 56px; }
