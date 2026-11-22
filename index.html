@@ -235,6 +235,36 @@
 
   /* 문항 화면과 플랫폼 공통 요소의 모양은 items/item.css 에 있습니다. */
 
+  /* 풀이 모드: 평정 칸을 접고 문항을 크게 / 평정 모드: 문항 + 평정 칸 */
+  .rate.m-solve { grid-template-columns: minmax(0, 1fr); }
+  .rate.m-solve .panel { display: none; }
+  body.m-solve .to-solve, body:not(.m-solve) .to-rate { display: none; }
+  .btn.ghost { min-width: 0; }
+  .btn.to-rate { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .bottom .btn.ghost { margin-left: auto; }
+  .bottom .btn.primary { margin-left: 0; }
+  .device { padding: 8px; border-radius: 16px; }
+
+  /* 세로가 짧은 화면(태블릿·작은 노트북): 머리글을 한 줄로, 여백을 줄여 문항을 크게 */
+  @media (max-height: 920px) {
+    .top { display: flex; flex-wrap: wrap; align-items: center; column-gap: 16px; padding: 4px 16px 0; }
+    .top-row { min-height: 0; flex: none; gap: 10px; }
+    .app-title { font-size: 15px; }
+    .where { display: none; }
+    .count { font-size: 15px; order: 3; margin-left: auto; }
+    .chips { flex: 1; order: 2; padding: 4px 0; gap: 6px; }
+    .chip { width: 34px; height: 34px; font-size: 14px; }
+    .bar { flex-basis: 100%; order: 4; margin: 0 -16px; }
+    .stage { padding: 6px 12px 6px; gap: 4px; }
+    .stage-bar { display: none; }
+    .stage-btn { min-height: 30px; font-size: 13px; }
+    .device { padding: 5px; border-radius: 12px; }
+    .bottom { min-height: 54px; padding: 6px 16px; }
+    .btn { min-height: 42px; }
+    .rate { grid-template-columns: minmax(0, 1fr) 380px; }
+    .panel { padding: 16px 16px 32px; }
+  }
+
   /* ================= 좁은 화면 ================= */
   @media (max-width: 980px) {
     .rate { display: block; height: auto; }
@@ -594,7 +624,8 @@ function renderGuide() {
       <h2 class="g-h">알아 두실 점</h2>
       <ul class="g-tips">
         ${S.study.requireInteraction ? '<li>문항을 한 번 이상 풀어 보셔야 평정 칸이 열립니다.</li>' : ''}
-        <li>문항이 작으면 문항 위의 <b>[전체 화면으로 보기]</b>를 누르세요.</li>
+        <li>문항은 크게 보이는 <b>풀이 화면</b>으로 먼저 열립니다. 다 푸셨으면 아래의 <b>[평정하기 →]</b>를 누르세요. <b>[← 문항 크게 보기]</b>로 언제든 돌아갈 수 있습니다.</li>
+        <li>더 크게 보시려면 아래의 <b>[전체 화면]</b>을 누르세요.</li>
         <li>맨 위의 번호를 눌러 다른 문항으로 오갈 수 있고, 평정은 나중에 고칠 수 있습니다.</li>
       </ul>
     </section>`,
@@ -666,6 +697,10 @@ function renderRating(cur, missingList = []) {
   const crits = P.criteria || [];
   // 처음 보이는 준거 칸: 아직 다 판단하지 않은 첫 준거
   let step = Math.max(0, crits.findIndex(c => (c.indicators || []).some(x => !judgmentDone(log.judgments[x.id]))));
+  // 풀이 모드(평정 칸을 접고 문항을 크게) / 평정 모드(문항 + 평정 칸).
+  // 평정 칸을 열어도 문항이 실제 크기의 85% 이상으로 보이는 넓은 화면이면 처음부터 평정 모드로 연다.
+  const roomy = (window.innerWidth - 440) / S.study.screen.width >= 0.85 && (window.innerHeight - 170) / S.study.screen.height >= 0.85;
+  let mode = log._mode || (roomy || Object.keys(log.judgments).length ? 'rate' : 'solve');
 
   const chips = `<nav class="chips" aria-label="문항 이동">
     ${R.items.map((x, i) => {
@@ -682,11 +717,10 @@ function renderRating(cur, missingList = []) {
     count: `${cur + 1} / ${n}`,
     chips,
     progress: Math.round(8 + (doneCount / n) * 84),
-    body: `<div class="rate">
+    body: `<div class="rate m-${mode}" id="rate">
       <div class="stage">
         <div class="stage-bar">
-          <p class="stage-note">아래는 학생이 보는 문항 화면입니다. 직접 풀어 보세요. 평정 대상은 가운데 흰 칸(문항 화면)뿐입니다.</p>
-          <button type="button" class="stage-btn" id="full">전체 화면으로 보기</button>
+          <p class="stage-note">학생이 보는 문항 화면입니다. 직접 풀어 보세요. 평정 대상은 가운데 흰 칸뿐입니다.</p>
         </div>
         <div class="stage-area" id="stagearea">
           <div class="device"><div class="screen" id="screen"><div class="canvas" id="canvas"></div></div></div>
@@ -698,10 +732,14 @@ function renderRating(cur, missingList = []) {
     </div>`,
     footer: `<button class="btn" id="prev" ${cur === 0 ? 'disabled' : ''}>이전</button>
       <span class="msg" id="msg" role="alert">${missingList.length ? `${missingList.map(i => i + 1).join(', ')}번 문항의 평정을 마쳐 주세요.` : ''}</span>
+      <button type="button" class="btn ghost" id="full">전체 화면</button>
+      <button type="button" class="btn mode-btn to-solve" id="modeSolve">← 문항 크게 보기</button>
+      <button type="button" class="btn mode-btn to-rate" id="modeRate">평정하기 →</button>
       <button class="btn primary" id="next">${cur === n - 1 ? '평정 마치기' : '다음 문항'}</button>`
   });
   document.getElementById('main').scrollTop = 0;
 
+  document.body.classList.toggle('m-solve', mode === 'solve');
   const screen = document.getElementById('screen');
   const canvas = document.getElementById('canvas');
   const panel = document.getElementById('panel');
@@ -745,9 +783,16 @@ function renderRating(cur, missingList = []) {
     paintSteps();
     panel.scrollTop = 0;
   }
+  function setMode(m) {
+    mode = m; log._mode = m;
+    document.getElementById('rate').className = 'rate m-' + m;
+    document.body.classList.toggle('m-solve', m === 'solve');
+    fitScreen();
+    syncNums();
+  }
   function syncNums() {
     const any = Object.keys(log.judgments).some(k => log.judgments[k].v === 'unmet');
-    if (ITEM_VIEW) ITEM_VIEW.showElements(any);
+    if (ITEM_VIEW) ITEM_VIEW.showElements(any && mode === 'rate');   // 풀이 모드에서는 번호를 띄우지 않는다
   }
   function touched() {
     const t = Math.round(seenMs(log));
@@ -792,6 +837,7 @@ function renderRating(cur, missingList = []) {
     const b = e.target.closest('button');
     if (!b || screen.contains(b)) return;
     if (b.id === 'full') { toggleFullscreen(true); return; }
+    if (b.id === 'modeRate' || b.id === 'modeSolve') { setMode(b.id === 'modeRate' ? 'rate' : 'solve'); return; }
     if (b.classList.contains('jd-btn')) {
       const id = b.dataset.ind, v = b.dataset.v;
       const j = log.judgments[id] || (log.judgments[id] = { v: '', els: [], note: '' });
@@ -812,6 +858,7 @@ function renderRating(cur, missingList = []) {
     if (b.dataset.go !== undefined) { renderRating(Number(b.dataset.go)); return; }
     if (b.id === 'prev' && cur > 0) { renderRating(cur - 1); return; }
     if (b.id === 'next') {
+      if (!isComplete(log) && mode === 'solve' && !(S.study.requireInteraction && log.interactions === 0)) { setMode('rate'); return; }
       if (!isComplete(log)) {
         const msg = document.getElementById('msg');
         if (S.study.requireInteraction && log.interactions === 0) {
