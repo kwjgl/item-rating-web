@@ -14,7 +14,10 @@
  *     opts.onChange(resp) : 응답이 바뀔 때마다 (resp 는 복사본, 응답이 비면 null)
  *     opts.onEvent(name)  : 'check'(정답 확인) · 'scratch'(연습장 열기) · 'passage'(지문 팝업 열기)
  *     opts.onNav(i)       : 번호 칸을 눌렀을 때(0부터). 없으면 번호 칸은 눌리지 않는다
- *   반환값: { redraw() } — 창 크기가 바뀌면 불러 선 잇기의 선을 다시 그린다
+ *   반환값:
+ *     redraw()          — 창 크기가 바뀌면 불러 선 잇기의 선·요소 번호를 다시 그린다
+ *     elements()        — 평정 근거로 고를 수 있는 화면 요소 [{ key, name, n }] (화면에 보이는 것만, 위→아래 차례로 번호)
+ *     showElements(on)  — 문항 화면 위에 요소 번호 ①②… 를 띄우거나 지운다 (평정할 때만 씀. 풀이 화면은 학생 화면 그대로)
  *
  *   ItemRuntime.answered(item, resp), ItemRuntime.correct(item, resp) — 응답 여부·정답 여부
  *
@@ -23,7 +26,6 @@
  */
 (function () {
   'use strict';
-  const CIRC = ['①', '②', '③', '④', '⑤', '⑥'];
   const $ = (s, r) => r.querySelector(s);
   const $$ = (s, r) => Array.from(r.querySelectorAll(s));
   const clone = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
@@ -46,9 +48,10 @@
     return null;
   }
 
+  // 플랫폼 틀: 위쪽 띠(평가 이름·교과·연습장), 아래쪽 띠(문항 번호·정답 확인). 평정 대상은 가운데 흰 칸(.p-main)뿐이다.
   const FRAME = `<div class="p-frame">
     <header class="p-top">
-      <span class="p-subject"></span><span class="p-title"></span><span class="p-no"></span>
+      <span class="p-title">확인평가</span><span class="p-subject"></span><span class="p-level"></span>
       <button type="button" class="p-tool p-scratch-btn" aria-pressed="false">✎ 연습장</button>
     </header>
     <div class="p-body">
@@ -61,13 +64,12 @@
             <button type="button" class="p-scratch-close">닫기</button></div>
         </div>
       </main>
-      <aside class="p-side">
-        <div class="p-side-t">문항 번호</div>
-        <div class="p-nums"></div>
-        <div class="p-feedback" role="status" aria-live="polite"></div>
-        <button type="button" class="p-check">정답 확인</button>
-      </aside>
     </div>
+    <footer class="p-bottom">
+      <nav class="p-nums" aria-label="문항 번호"></nav>
+      <div class="p-feedback" role="status" aria-live="polite"></div>
+      <button type="button" class="p-check">정답 확인</button>
+    </footer>
   </div>`;
 
   function ghostHost() {
@@ -88,19 +90,22 @@
 
     // ---- 플랫폼 틀 ----
     $('.p-subject', F).textContent = it.subject;
-    $('.p-title', F).textContent = `${it.school === '초' ? '초등학교' : '중학교'} ${it.subject} 평가`;
+    $('.p-level', F).textContent = it.school === '초' ? '초등학교' : '중학교';
     // ※ 번호 칸·문항 번호는 이 세트 안에서 '몇 번째로 보이는가'(pos)이다. 설계 번호(E01 등)는 화면에 보이지 않는다.
-    $('.p-no', F).textContent = `${o.pos}번`;
-    const nums = [];
+    const nav = (d, t, lbl) => `<button type="button" class="p-arrow" data-i="${o.pos - 1 + d}" aria-label="${lbl}"${(o.pos - 1 + d < 0 || o.pos - 1 + d >= o.total) ? ' disabled' : ''}>${t}</button>`;
+    const nums = [nav(-1, '‹', '이전 문항')];
     for (let i = 0; i < o.total; i++) {
       const done = o.answeredAt ? o.answeredAt(i) : false;
       nums.push(`<button type="button" class="p-num${i === o.pos - 1 ? ' on' : ''}${done ? ' done' : ''}" data-i="${i}"` +
         `${o.onNav ? '' : ' tabindex="-1"'} aria-label="${i + 1}번 문항">${i + 1}</button>`);
     }
+    nums.push(nav(1, '›', '다음 문항'));
     $('.p-nums', F).innerHTML = nums.join('');
     $('.p-nums', F).addEventListener('click', e => {
-      const b = e.target.closest('.p-num'); if (b && o.onNav) o.onNav(Number(b.dataset.i));
+      const b = e.target.closest('.p-num, .p-arrow'); if (b && !b.disabled && o.onNav) o.onNav(Number(b.dataset.i));
     });
+    // 문두 앞 문항 번호 (실제 평가 화면처럼 원 번호)
+    const qno = `<span class="i-qno" aria-label="${o.pos}번">${o.pos}</span>`;
     const fb = $('.p-feedback', F);
     const feedback = (t, k) => { fb.textContent = t; fb.className = 'p-feedback' + (k ? ' ' + k : ''); };
     $('.p-check', F).addEventListener('click', () => {
@@ -121,6 +126,8 @@
     const area = $('.p-area', F);
     area.innerHTML = `<div class="it t-${it.type}" data-item="${it.id}">${it.render(D)}</div>`;
     const root = $('.it', area);
+    const stemEl = $('.i-stem', root);
+    if (stemEl) stemEl.insertAdjacentHTML('afterbegin', qno);
     if (it.type === 'choice') mountChoice();
     else if (it.type === 'short') mountShort();
     else if (it.type === 'drag') mountDrag();
@@ -132,7 +139,7 @@
       const ol = $('[data-choices]', root);
       const choices = typeof it.choices === 'function' ? it.choices(D) : it.choices;
       ol.innerHTML = choices.map((c, i) =>
-        `<li><button type="button" class="i-choice" data-v="${i}" aria-pressed="false"><span class="i-mark">${CIRC[i]}</span><span class="i-ctext">${c}</span></button></li>`).join('');
+        `<li><button type="button" class="i-choice" data-v="${i}" aria-pressed="false"><span class="i-mark">${i + 1}</span><span class="i-ctext">${c}</span></button></li>`).join('');
       const paint = () => $$('.i-choice', ol).forEach(b => {
         const sel = Number(b.dataset.v) === resp;
         b.classList.toggle('on', sel); b.setAttribute('aria-pressed', sel);
@@ -348,7 +355,34 @@
       btn.addEventListener('click', () => toggle(layer.hidden));
     }
 
-    return { redraw() { if (redraw) redraw(); } };
+    // ---- 평정 근거 요소 (data-el) ----
+    let numsOn = false;
+    function elements() {
+      return $$('[data-el]', root).filter(x => x.getClientRects().length > 0)
+        .map((x, i) => ({ key: x.dataset.el, name: x.dataset.elName || x.dataset.el, n: i + 1, node: x }));
+    }
+    function showElements(on) {
+      numsOn = !!on;
+      const old = $('.p-elnums', area);
+      if (old) old.parentNode.removeChild(old);
+      if (!numsOn) return;
+      const k = scale(), a = area.getBoundingClientRect();
+      const layer = document.createElement('div');
+      layer.className = 'p-elnums'; layer.setAttribute('aria-hidden', 'true');
+      layer.innerHTML = elements().map(e => {
+        const r = e.node.getBoundingClientRect();
+        // 배지는 요소 왼쪽 위 바깥(여백)에 둔다 — 요소의 글자를 가리지 않게
+        const x = Math.max(0, (r.left - a.left) / k - 30), y = Math.max(0, (r.top - a.top) / k - 6);
+        return `<span class="p-elnum" style="left:${x}px;top:${y}px">${e.n}</span>`;
+      }).join('');
+      area.appendChild(layer);
+    }
+
+    return {
+      redraw() { if (redraw) redraw(); if (numsOn) showElements(true); },
+      elements: () => elements().map(e => ({ key: e.key, name: e.name, n: e.n })),
+      showElements
+    };
   }
 
   window.ItemRuntime = { mount, answered, correct };

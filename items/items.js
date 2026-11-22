@@ -40,24 +40,37 @@
   // 그림 파일만 (없으면 아무것도 안 보임) — 선 잇기 칸 속 작은 그림처럼 글자가 함께 있는 자리
   const icon = (name, alt) => `<img class="i-icon" src="${ASSETS}${ART[name]}" alt="${alt}" onerror="this.remove()">`;
 
+  // [평정 근거 요소] data-el 이 붙은 요소는 평정할 때 문항 화면 위에 ①②… 번호가 붙고,
+  // 교사가 '미충족'의 근거로 고를 수 있다. key 는 분석용 이름(시트에 남음), name 은 교사에게 보이는 이름.
+  // 결함 문항마다 '의도한 결함 요소'의 key 는 Code.gs 의 DEFECTS.elements 에 있다.
+  const el = (key, name) => ` data-el="${key}" data-el-name="${name}"`;
+
   // 응답 방식 안내 — 같은 형식의 문항은 모두 같은 문구를 쓴다
   const G = {
-    choice: '알맞은 답을 하나 골라 누르세요.',
-    short: '빈칸을 누르고 답을 쓰세요.',
-    drag: '카드를 끌어 칸에 놓으세요. 카드를 누른 뒤 칸을 눌러도 됩니다. 놓은 카드는 다시 옮길 수 있습니다.',
-    match: '왼쪽 칸에서 오른쪽 칸으로 끌거나, 두 칸을 차례로 누르면 선이 이어집니다. 이은 선을 누르면 지워집니다.'
+    choice: '',
+    short: '',
+    drag: '카드를 끌어 칸에 놓거나, 카드를 누른 뒤 칸을 누르세요. 놓은 카드는 다시 옮길 수 있습니다.',
+    match: '왼쪽 점에서 오른쪽 점으로 끌거나 차례로 누르면 선이 이어집니다. 선을 누르면 지워집니다.'
   };
-  const guide = t => `<p class="i-guide">${G[t]}</p>`;
-  const stem = h => `<div class="i-stem">${h}</div>`;
+  // 선택형·단답형은 실제 평가 화면처럼 안내 문장 없이 화면 표시(원 번호 선택지, 테두리 있는 입력 칸)로 응답 방식을 알린다.
+  // 끌어 놓기·선 잇기는 조작 방법이 화면만으로 드러나지 않으므로 짧은 안내를 둔다.
+  const guide = t => (G[t] ? `<p class="i-guide"${el('guide', '응답 방법 안내')}>${G[t]}</p>` : '');
+  // 문두. 앞에 runtime.js 가 문항 번호(.i-qno)를 붙인다
+  const stem = h => `<div class="i-stem"${el('stem', '문두')}><span class="i-stem-t">${h}</span></div>`;
+  // 국어 지시문 ("다음 글을 읽고, 물음에 답하세요.") — 지문 칸 맨 위
+  const direction = t => `<p class="i-direction"${el('direction', '지시문')}>${t}</p>`;
+  // 좌우 나눔: 왼쪽 = 지시문·지문·자료, 오른쪽 = 문두·응답 (디지털 평가 화면의 기본 틀)
+  const split = (left, right) => `<div class="i-split"><section class="i-pane l">${left}</section><section class="i-pane r">${right}</section></div>`;
+  const CHOICES = `<ol class="i-choices" data-choices data-el="resp" data-el-name="선택지"></ol>`;
   const fr = (a, b, sign) => `<span class="frac-wrap">${sign || ''}<span class="frac" aria-label="${b}분의 ${a}"><span>${a}</span><span>${b}</span></span></span>`;
   const bin = (id, label) => `<div class="i-bin" data-bin="${id}"><div class="i-bin-label">${label}</div><div class="i-bin-drop"></div></div>`;
   const dragArea = (bins, extraClass) => `${guide('drag')}
-    <div class="i-bank${extraClass ? ' ' + extraClass : ''}" data-bank aria-label="카드가 있는 곳"></div>
-    <div class="i-bins c${bins.length}">${bins.map(b => bin(b[0], b[1])).join('')}</div>`;
+    <div class="i-bank${extraClass ? ' ' + extraClass : ''}" data-bank aria-label="카드가 있는 곳"${el('bank', '카드')}></div>
+    <div class="i-bins c${bins.length}"${el('bins', '카드 놓는 칸')}>${bins.map(b => bin(b[0], b[1])).join('')}</div>`;
   // 정보 선별 결함: 풀이에 쓰이지 않는 덧붙임 지식 상자 (평범한 글상자, 그림·강조 없음)
-  const extra = t => `<aside class="i-extra"><p class="i-extra-h">더 알아보기</p><p>${t}</p></aside>`;
+  const extra = t => `<aside class="i-extra"${el('extra', '더 알아보기 상자')}><p class="i-extra-h">더 알아보기</p><p>${t}</p></aside>`;
   // 장식 절제 결함: 문두 옆의 큰 정지 캐릭터 (움직임·글 없음)
-  const MASCOT = `<svg class="i-mascot" viewBox="0 0 200 200" aria-hidden="true">
+  const MASCOT = `<svg class="i-mascot" viewBox="0 0 200 200" aria-hidden="true" data-el="mascot" data-el-name="캐릭터 그림">
     <ellipse cx="100" cy="188" rx="62" ry="9" fill="#E7E2D4"/>
     <path d="M30 118 Q8 96 18 70" stroke="#E0A419" stroke-width="10" fill="none" stroke-linecap="round"/>
     <path d="M170 118 Q192 96 182 70" stroke="#E0A419" stroke-width="10" fill="none" stroke-linecap="round"/>
@@ -69,30 +82,29 @@
     <ellipse cx="50" cy="126" rx="13" ry="8" fill="#FF9A7A" opacity=".75"/><ellipse cx="150" cy="126" rx="13" ry="8" fill="#FF9A7A" opacity=".75"/>
     <path d="M76 132 Q100 156 124 132" stroke="#3A2E1E" stroke-width="6" fill="none" stroke-linecap="round"/>
   </svg>`;
-  const stemFig = (on, h) => `<div class="i-stem with-fig"><span>${h}</span>${on ? MASCOT : ''}</div>`;
+  const stemFig = (on, h) => `<div class="i-stem with-fig"${el('stem', '문두')}><span class="i-stem-t">${h}</span>${on ? MASCOT : ''}</div>`;
   // 근접 배치 결함: 비교할 두 자료를 왼쪽 위·오른쪽 아래로 떨어뜨림. 끄면 한 자료 상자에 나란히.
-  function compare(far, a, b, resp, wide) {
-    const r = `<section class="i-resp${far ? ' far-r' : ''}">${resp}</section>`;
-    if (far) return `<div class="i-far"><section class="i-data far-a">${a}</section>${r}<section class="i-data far-b">${b}</section></div>`;
-    return wide
-      ? `<section class="i-data"><div class="i-figs">${a}${b}</div></section><div class="i-below">${r}</div>`
-      : `<div class="i-cols"><section class="i-data"><div class="i-figs">${a}${b}</div></section>${r}</div>`;
+  function compare(far, stemHtml, a, b, resp, wide, names) {
+    if (far) {
+      return stemHtml + `<div class="i-far"><section class="i-data far-a"${el('dataA', names[0])}>${a}</section>` +
+        `<section class="i-resp far-r">${resp}</section><section class="i-data far-b"${el('dataB', names[1])}>${b}</section></div>`;
+    }
+    const box = `<div class="i-data fig${wide ? '' : ' fit'}"${el('data', names[0] + '·' + names[1])}><div class="i-figs">${a}${b}</div></div>`;
+    return `${stemHtml}${box}<div class="i-below"><section class="i-resp">${resp}</section></div>`;
   }
   // 응답 방식 인지 결함: 입력 칸이 본문 괄호와 똑같이 보이고 입력 안내가 없다. 끄면 입력 칸 표시와 안내.
   function blankAnswer(hidden, before, after, width) {
     const w = width ? ` style="width:${width}"` : '';
-    return (hidden ? '' : guide('short')) + `<div class="i-ansbox"><p class="i-ansbox-h">답</p><p>${before}${hidden
+    return (hidden ? '' : guide('short')) + `<div class="i-ansbox"${el('resp', '답 칸')}><p class="i-ansbox-h">답</p><p>${before}${hidden
       ? `(<input class="i-input inline bare" autocomplete="off" aria-label="답"${w}>)`
       : `<input class="i-input inline" autocomplete="off" aria-label="답" placeholder="눌러서 쓰기"${w}>`}${after}</p></div>`;
   }
-  // 지문·자료 참조 결함: 지문을 [지문 보기] 팝업으로만 보여 주고, 팝업이 문두 아래의 응답 영역을 덮는다.
-  function passageOrPopup(popup, passage, respInner, wideLeft) {
-    if (!popup) {
-      return `<div class="i-cols${wideLeft ? ' wide-left' : ''}"><section class="i-data scroll">${passage}</section>
-        <section class="i-resp">${respInner}</section></div>`;
-    }
-    return `<section class="i-resp"><button type="button" class="i-open">지문 보기</button>${respInner}</section>
-      <div class="i-pop" hidden><div class="i-pop-card"><button type="button" class="i-pop-close">닫기 ✕</button>${passage}</div></div>`;
+  // 지문·자료 참조 결함: 지문을 [지문 보기] 팝업으로만 보여 주고, 팝업이 문두 아래의 응답 영역을 덮는다(문두는 가리지 않음).
+  // 끄면 왼쪽 칸에 지시문·지문, 오른쪽 칸에 문두·응답.
+  function passageOrPopup(popup, dirText, stemHtml, passage, respInner) {
+    if (!popup) return split(direction(dirText) + `<div class="i-data scroll"${el('data', '지문')}>${passage}</div>`, stemHtml + respInner);
+    return stemHtml + `<section class="i-resp"><button type="button" class="i-open"${el('popup', '지문 보기 단추(팝업 지문)')}>지문 보기</button>${respInner}</section>
+      <div class="i-pop" hidden><div class="i-pop-card"><button type="button" class="i-pop-close">닫기 ✕</button><p class="i-direction">${dirText}</p>${passage}</div></div>`;
   }
 
   // ---------------- 그림 (임시 SVG) ----------------
@@ -209,6 +221,10 @@
     `<span class="i-land"><b>${tag}</b>${art(name, 400, 300, LAND_FB[name], '', alt)}</span>`;
 
   // ---------------- 문항 ----------------
+  // 배치: 국어(지문 있음)는 split(왼쪽 = 지시문·지문, 오른쪽 = 문두·응답), 그 밖의 교과는 한 단(문두 → 그림·자료 → 응답).
+  //       자료가 없는 문항은 문두 바로 아래 응답. 문두 앞 문항 번호는 runtime.js 가 붙인다.
+  const DIR_TEXT = '다음 글을 읽고, 물음에 답하세요.';
+  const DIR_POEM = '다음 시를 읽고, 물음에 답하세요.';
   const ITEMS = [
     // ======================= 초등 세트 =======================
     // E01 ─ 과학·끌어 놓기 ─ 정보 선별
@@ -235,12 +251,10 @@
         '더듬이가 다치면 개미는 길을 잃기도 합니다.'
       ],
       answer: 0,
-      render: D => stemFig(D('E02'), '글을 읽고, 이 글의 중심 문장으로 알맞은 것을 고르세요.') +
-        `<div class="i-cols">
-          <section class="i-data i-ptext"><p class="i-phead">개미의 더듬이</p>
-            <p class="i-para">개미에게 더듬이는 아주 중요한 기관입니다. 개미는 더듬이로 냄새를 맡아 먹이가 있는 곳을 찾습니다. 또 더듬이를 서로 맞대어 같은 집에 사는 친구인지 알아봅니다. 그래서 더듬이가 다치면 개미는 길을 잃기도 합니다.</p></section>
-          <section class="i-resp">${guide('choice')}<ol class="i-choices" data-choices></ol></section>
-        </div>`
+      render: D => split(direction(DIR_TEXT) +
+          `<div class="i-data i-ptext scroll"${el('data', '지문')}><p class="i-phead">개미의 더듬이</p>
+            <p class="i-para">개미에게 더듬이는 아주 중요한 기관입니다. 개미는 더듬이로 냄새를 맡아 먹이가 있는 곳을 찾습니다. 또 더듬이를 서로 맞대어 같은 집에 사는 친구인지 알아봅니다. 그래서 더듬이가 다치면 개미는 길을 잃기도 합니다.</p></div>`,
+        stemFig(D('E02'), '이 글의 중심 문장으로 알맞은 것은 무엇인가요?') + guide('choice') + CHOICES)
     },
 
     // E03 ─ 과학·선택형 ─ 색 외 구분 단서
@@ -250,11 +264,8 @@
         ? ['노란색 층', '갈색 층', '초록색 층', '회색 층']
         : ['㉠ 층', '㉣ 층', '㉡ 층', '㉢ 층'],
       answer: 1,
-      render: D => stem('그림은 어느 곳의 지층을 나타낸 것입니다. 이 지층에서 가장 먼저 쌓인 층은 어느 것인가요? (지층은 뒤집히지 않았습니다.)') +
-        `<div class="i-cols">
-          <section class="i-data">${art('strata', 900, 600, STRATA_FB, D('E03') ? '' : STRATA_LABELS, '네 개의 층이 수평으로 쌓인 지층 단면 그림')}</section>
-          <section class="i-resp">${guide('choice')}<ol class="i-choices" data-choices></ol></section>
-        </div>`
+      render: D => stem('그림은 어느 곳의 지층을 나타낸 것입니다. 이 지층에서 가장 먼저 쌓인 층은 어느 것인가요? (단, 지층은 뒤집히지 않았습니다.)') +
+        `<div class="i-data fig" style="max-width:360px"${el('data', '지층 그림')}>${art('strata', 900, 600, STRATA_FB, D('E03') ? '' : STRATA_LABELS, '네 개의 층이 수평으로 쌓인 지층 단면 그림')}</div>` + CHOICES
     },
 
     // E04 ─ 수학·단답형 ─ 핵심 정보 강조
@@ -265,7 +276,7 @@
         ? '<span class="x1">어떤 수에</span> <span class="x3">5를</span> <span class="x4">더해야 할 것을</span> <span class="x2">잘못하여</span> <span class="x5">뺐더니</span> <span class="x3">12가</span> 되었습니다. <span class="x1">바르게</span> <span class="x4">계산하면</span> <span class="x2">얼마인가요</span>?'
         : '어떤 수에 5를 더해야 할 것을 잘못하여 뺐더니 12가 되었습니다. <span class="em-key">바르게 계산하면</span> 얼마인가요?') +
         `<section class="i-resp narrow">${guide('short')}
-          <p class="i-answer-line">답: <input class="i-input num" inputmode="numeric" autocomplete="off" aria-label="답" placeholder="숫자"></p></section>`
+          <p class="i-answer-line"${el('resp', '답 입력 칸')}>답: <input class="i-input num" inputmode="numeric" autocomplete="off" aria-label="답" placeholder="숫자"></p></section>`
     },
 
     // E05 ─ 국어·선 잇기 ─ 지문·자료 참조
@@ -274,29 +285,30 @@
       left: [{ id: 'a', html: '㉠ 고대했다' }, { id: 'b', html: '㉡ 옹기종기' }, { id: 'c', html: '㉢ 꼿꼿하게' }],
       right: [{ id: 'r1', html: '굽지 않고 곧게' }, { id: 'r2', html: '몹시 기다렸다' }, { id: 'r3', html: '크게 실망했다' }, { id: 'r4', html: '작은 것들이 모여 있는 모양' }],
       answer: { a: 'r2', b: 'r4', c: 'r1' },
-      render: D => stem('글을 읽고, ㉠~㉢의 뜻을 짐작하여 알맞게 선으로 이으세요.') + passageOrPopup(D('E05'),
+      render: D => passageOrPopup(D('E05'), DIR_TEXT,
+        stem('㉠~㉢의 뜻을 짐작하여 알맞게 선으로 이으세요.'),
         `<div class="i-ptext">
           <p class="i-para">우리 반은 화단에 강낭콩을 심었다. 나는 매일 아침 물을 주며 싹이 트기를 <span class="i-smark"><b>㉠</b><u>고대했다</u></span>. 일주일쯤 지나자 흙을 뚫고 연두색 싹이 고개를 내밀었다. 친구들은 신기해하며 화단 앞에 <span class="i-smark"><b>㉡</b><u>옹기종기</u></span> 모여들었다.</p>
           <p class="i-para">그런데 며칠 뒤 세찬 비가 내려 몇몇 싹이 쓰러지고 말았다. 우리는 막대기를 세우고 끈으로 줄기를 묶어 주었다. 다행히 싹들은 다시 <span class="i-smark"><b>㉢</b><u>꼿꼿하게</u></span> 일어섰다.</p></div>`,
-        `${guide('match')}<div class="i-match${D('E05') ? ' solo' : ''}" data-match></div>`, true)
+        `${guide('match')}<div class="i-match stack${D('E05') ? ' solo' : ''}" data-match${el('resp', '선 잇기 칸')}></div>`)
     },
 
     // E06 ─ 수학·단답형 ─ 관련 정보 근접 배치
     {
       id: 'E06', set: 'E', no: 6, school: '초', subject: '수학', type: 'short',
       answer: ['3'],
-      render: D => stem('모눈 한 칸의 넓이는 1 cm²입니다. 도형 (가)와 (나)의 넓이의 차는 몇 cm²인가요?') +
-        compare(D('E06'), FIG_A, FIG_B, `${guide('short')}
-          <p class="i-answer-line"><input class="i-input num" inputmode="numeric" autocomplete="off" aria-label="답" placeholder="숫자"> cm²</p>`)
+      render: D => compare(D('E06'), stem('모눈 한 칸의 넓이는 1 cm²입니다. 도형 (가)와 (나)의 넓이의 차는 몇 cm²인가요?'),
+        FIG_A, FIG_B, `${guide('short')}
+          <p class="i-answer-line"${el('resp', '답 입력 칸')}><input class="i-input num" inputmode="numeric" autocomplete="off" aria-label="답" placeholder="숫자"> cm²</p>`, false, ['도형 (가)', '도형 (나)'])
     },
 
     // E07 ─ 사회·단답형 ─ 응답 방식 인지
     {
       id: 'E07', set: 'E', no: 7, school: '초', subject: '사회', type: 'short',
       answer: ['도서관'],
-      render: D => stem('안내도에서 학교의 북쪽에 있는 곳은 어디인가요?') +
-        `<div class="i-cols"><section class="i-data">${TOWN_MAP}</section>
-          <section class="i-resp">${blankAnswer(D('E07'), '학교의 북쪽에는 ', '이/가 있습니다.')}</section></div>`
+      render: D => stem('다음은 어느 고장의 안내도입니다. 학교의 북쪽에 있는 곳은 어디인가요?') +
+        `<div class="i-data fig" style="max-width:380px"${el('data', '안내도')}>${TOWN_MAP}</div>` +
+        `<section class="i-resp narrow">${blankAnswer(D('E07'), '학교의 북쪽에는 ', '이/가 있습니다.')}</section>`
     },
 
     // E08 ─ 사회·끌어 놓기 ─ 응답 결과 표시
@@ -321,12 +333,10 @@
       id: 'E09', set: 'E', no: 9, school: '초', subject: '국어', type: 'choice',
       choices: ['교실에서 실내화를 신자.', '교실 청소를 더 자주 하자.', '바닥에 앉아서 활동하지 말자.', '운동화를 깨끗하게 빨아 신자.'],
       answer: 0,
-      render: () => stem('글을 읽고, 글쓴이의 생각으로 알맞은 것을 고르세요.') +
-        `<div class="i-cols">
-          <section class="i-data i-ptext"><p class="i-phead">교실에서 실내화를 신자</p>
-            <p class="i-para">우리 반 친구들은 교실에서도 운동화를 그대로 신고 다닌다. 그래서 바닥에 흙과 모래가 쌓이고, 청소를 해도 금방 더러워진다. 바닥에 앉아 활동할 때에는 옷도 쉽게 더러워진다. 교실에서 실내화를 신으면 바닥을 깨끗하게 지킬 수 있다. 우리 모두 교실에 들어올 때 실내화로 갈아 신자.</p></section>
-          <section class="i-resp">${guide('choice')}<ol class="i-choices" data-choices></ol></section>
-        </div>`
+      render: () => split(direction(DIR_TEXT) +
+          `<div class="i-data i-ptext scroll"${el('data', '지문')}><p class="i-phead">교실에서 실내화를 신자</p>
+            <p class="i-para">우리 반 친구들은 교실에서도 운동화를 그대로 신고 다닌다. 그래서 바닥에 흙과 모래가 쌓이고, 청소를 해도 금방 더러워진다. 바닥에 앉아 활동할 때에는 옷도 쉽게 더러워진다. 교실에서 실내화를 신으면 바닥을 깨끗하게 지킬 수 있다. 우리 모두 교실에 들어올 때 실내화로 갈아 신자.</p></div>`,
+        stem('글쓴이의 생각으로 알맞은 것은 무엇인가요?') + guide('choice') + CHOICES)
     },
 
     // E10 ─ 수학·끌어 놓기 ─ 결함 없음
@@ -338,8 +348,8 @@
       bins: [{ id: 's1', cap: 1 }, { id: 's2', cap: 1 }, { id: 's3', cap: 1 }],
       render: () => stem('세 분수를 작은 수부터 차례로 빈칸에 끌어다 놓으세요.') +
         `<section class="i-resp">${guide('drag')}
-          <div class="i-bank frac-bank" data-bank aria-label="카드가 있는 곳"></div>
-          <div class="i-slots">${bin('s1', '가장 작은 수')}<span class="i-lt" aria-hidden="true">&lt;</span>${bin('s2', '두 번째 수')}<span class="i-lt" aria-hidden="true">&lt;</span>${bin('s3', '가장 큰 수')}</div>
+          <div class="i-bank frac-bank" data-bank aria-label="카드가 있는 곳"${el('bank', '카드')}></div>
+          <div class="i-slots"${el('bins', '카드 놓는 칸')}>${bin('s1', '가장 작은 수')}<span class="i-lt" aria-hidden="true">&lt;</span>${bin('s2', '두 번째 수')}<span class="i-lt" aria-hidden="true">&lt;</span>${bin('s3', '가장 큰 수')}</div>
         </section>`
     },
 
@@ -354,7 +364,7 @@
       right: [{ id: 'walk', html: '다리로 걷거나 뛰어다닌다' }, { id: 'fly', html: '날개로 날아다닌다' }, { id: 'swim', html: '지느러미로 헤엄친다' }],
       answer: { fish: 'swim', sq: 'walk', bird: 'fly' },
       render: () => stem('동물과 그 동물이 움직이는 방법을 알맞게 선으로 이으세요.') +
-        `<section class="i-resp">${guide('match')}<div class="i-match wide-right" data-match></div></section>`
+        `<section class="i-resp">${guide('match')}<div class="i-match wide-right" data-match${el('resp', '선 잇기 칸')}></div></section>`
     },
 
     // E12 ─ 사회·선 잇기 ─ 결함 없음
@@ -369,7 +379,7 @@
       ],
       answer: { fire: 'rescue', health: 'vacc', lib: 'book', police: 'order' },
       render: () => stem('우리 고장의 공공 기관과 그곳에서 하는 일을 알맞게 선으로 이으세요.') +
-        `<section class="i-resp">${guide('match')}<div class="i-match wide-right" data-match></div></section>`
+        `<section class="i-resp">${guide('match')}<div class="i-match wide-right" data-match${el('resp', '선 잇기 칸')}></div></section>`
     },
 
     // ======================= 중등 세트 =======================
@@ -397,16 +407,14 @@
         '대상을 일정한 기준에 따라 나누어 설명하였다.'
       ],
       answer: 2,
-      render: D => stemFig(D('M02'), '글을 읽고, 이 글에서 주로 사용한 설명 방법으로 알맞은 것을 고르세요.') +
-        `<div class="i-cols wide-left">
-          <section class="i-data i-ptext scroll"><p class="i-phead">바닷물은 왜 짤까</p>
+      render: D => split(direction(DIR_TEXT) +
+          `<div class="i-data i-ptext scroll"${el('data', '지문')}><p class="i-phead">바닷물은 왜 짤까</p>
             <p class="i-para">바닷물 1킬로그램을 증발시키면 약 35그램의 소금이 남는다. 강물이나 빗물에서는 짠맛이 거의 나지 않는데, 바닷물은 왜 이렇게 짤까? 그 까닭은 오랜 세월 동안 되풀이된 물의 순환에서 찾을 수 있다.</p>
             <p class="i-para">비가 내리면 빗물은 땅 위의 바위와 흙을 적시며 흘러간다. 빗물에는 공기 중의 이산화 탄소가 조금 녹아 있어 약한 산성을 띠기 때문에, 바위 속의 여러 광물을 조금씩 녹여 낸다. 이렇게 녹아 나온 나트륨, 칼슘, 마그네슘 같은 물질은 강물을 따라 바다로 흘러 들어간다.</p>
             <p class="i-para">바다에 이른 물은 햇볕을 받아 증발하여 다시 구름이 된다. 그런데 물이 증발할 때 녹아 있던 물질은 함께 날아가지 못하고 바다에 남는다. 이 과정이 수억 년 동안 되풀이되면서 바다에는 녹아 있는 물질이 점점 쌓였고, 그 결과 바닷물이 짜게 되었다.</p>
             <p class="i-para">바다 밑에서 일어나는 화산 활동도 바닷물의 짠맛에 영향을 준다. 해저 화산이나 바다 밑에서 뜨거운 물이 솟아나는 곳에서는 염소 같은 물질이 바닷물로 나온다. 이 염소가 강물에서 온 나트륨과 만나 염화 나트륨, 곧 소금이 된다.</p>
-            <p class="i-para">이처럼 바닷물이 짠 것은 육지의 물질이 강물을 타고 바다로 옮겨지고, 물만 증발하여 그 물질이 남는 일이 오랫동안 되풀이되었기 때문이다.</p></section>
-          <section class="i-resp">${guide('choice')}<ol class="i-choices" data-choices></ol></section>
-        </div>`
+            <p class="i-para">이처럼 바닷물이 짠 것은 육지의 물질이 강물을 타고 바다로 옮겨지고, 물만 증발하여 그 물질이 남는 일이 오랫동안 되풀이되었기 때문이다.</p></div>`,
+        stemFig(D('M02'), '이 글에서 주로 사용한 설명 방법으로 알맞은 것은?') + guide('choice') + CHOICES)
     },
 
     // M03 ─ 과학·선 잇기 ─ 색 외 구분 단서
@@ -417,11 +425,9 @@
         : [{ id: 'r', html: '㉠ 화살표' }, { id: 'b', html: '㉡ 화살표' }, { id: 'g', html: '㉢ 화살표' }],
       right: [{ id: 'rad', html: '복사' }, { id: 'con', html: '전도' }, { id: 'cv', html: '대류' }],
       answer: { r: 'con', b: 'cv', g: 'rad' },
-      render: D => stem('그림의 화살표가 나타내는 열의 이동 방법을 찾아 선으로 이으세요.') +
-        `<div class="i-cols">
-          <section class="i-data">${art('heatRoom', 480, 330, HEAT_FB, heatOverlay(!D('M03')), '난로가 있는 방에서 열이 이동하는 모습을 화살표 세 개로 나타낸 그림')}</section>
-          <section class="i-resp">${guide('match')}<div class="i-match" data-match></div></section>
-        </div>`
+      render: D => stem('그림은 난로가 있는 방에서 열이 이동하는 모습을 화살표로 나타낸 것입니다. 화살표가 나타내는 열의 이동 방법을 찾아 선으로 이으세요.') +
+        `<div class="i-row"><div class="i-data fig"${el('data', '열의 이동 그림')}>${art('heatRoom', 480, 330, HEAT_FB, heatOverlay(!D('M03')), '난로가 있는 방에서 열이 이동하는 모습을 화살표 세 개로 나타낸 그림')}</div>` +
+        `<section class="i-resp">${guide('match')}<div class="i-match compact" data-match${el('resp', '선 잇기 칸')}></div></section></div>`
     },
 
     // M04 ─ 수학·선택형 ─ 핵심 정보 강조
@@ -432,7 +438,7 @@
       render: D => stem(D('M04')
         ? '<span class="x1">다음 수</span> <span class="x3">중에서</span> <span class="x4">절댓값이</span> <span class="x2">가장</span> <span class="x5">작은</span> <span class="x3">수는</span>?'
         : '다음 수 중에서 <span class="em-key">절댓값이 가장 작은</span> 수는?') +
-        `<section class="i-resp narrow">${guide('choice')}<ol class="i-choices num" data-choices></ol></section>`
+        `<section class="i-resp narrow">${guide('choice')}<ol class="i-choices num" data-choices${el('resp', '선택지')}></ol></section>`
     },
 
     // M05 ─ 국어·선 잇기 ─ 지문·자료 참조 (긴 소설 지문)
@@ -441,22 +447,23 @@
       left: [{ id: 'dh', html: '도현' }, { id: 'hy', html: '하윤' }, { id: 'mj', html: '민재' }],
       right: [{ id: 'care', html: '배려심이 있다' }, { id: 'greed', html: '욕심이 많다' }, { id: 'cau', html: '신중하다' }, { id: 'resp', html: '책임감이 있다' }],
       answer: { dh: 'cau', hy: 'resp', mj: 'care' },
-      render: D => stem('글을 읽고, 인물과 그 인물의 성격을 알맞게 선으로 이으세요.') + passageOrPopup(D('M05'),
+      render: D => passageOrPopup(D('M05'), DIR_TEXT,
+        stem('인물과 그 인물의 성격을 알맞게 선으로 이으세요.'),
         `<div class="i-ptext">
           <p class="i-para">장마가 끝난 첫 토요일, 도현이와 하윤이, 민재는 뒷산 계곡으로 향했다. 며칠 동안 내린 비 때문에 계곡물은 평소보다 훨씬 불어 있었고, 늘 밟고 건너던 징검다리 몇 개는 흙탕물 아래로 잠겨 보이지 않았다.</p>
           <p class="i-para">“이 정도면 금방 건너겠는데?” 하윤이가 신발 끈을 고쳐 매며 앞으로 나섰다. 그때 도현이가 하윤이의 팔을 붙잡았다. 도현이는 주변에서 긴 나뭇가지를 주워 와 물에 잠긴 돌을 하나하나 짚어 보았다. 세 번째 돌에서 나뭇가지가 미끄러지듯 옆으로 밀려났다. “이 돌은 흔들려. 조금 돌아가더라도 위쪽 다리로 건너자.” 하윤이는 입을 삐죽였지만, 흔들리는 돌을 보고는 말없이 고개를 끄덕였다.</p>
           <p class="i-para">다리를 건너 넓은 바위에 자리를 잡은 셋은 도시락을 펼쳤다. 하윤이가 과자 봉지를 뜯는 순간, 세찬 바람이 불어 빈 봉지가 풀숲 쪽으로 날아갔다. “그냥 둬. 저기까지 언제 가.” 민재가 말렸지만 하윤이는 이미 일어서 있었다. 하윤이는 가시덤불을 헤치고 풀숲 끝까지 가서 봉지를 주워 왔다. 팔에는 가느다란 생채기가 나 있었다. “내가 떨어뜨렸으니 내가 치워야지.”</p>
           <p class="i-para">해가 기울 무렵, 셋은 산을 내려왔다. 앞서 걷던 하윤이가 길 한가운데에서 쩔쩔매고 있었다. 풀린 신발 끈을 매려는데 양손에 든 가방과 물통 때문에 좀처럼 허리를 굽히지 못했던 것이다. 민재는 아무 말 없이 다가가 하윤이의 가방과 물통을 받아 들었다. 그러고는 하윤이가 끈을 다 맬 때까지 한쪽에 서서 기다려 주었다.</p></div>`,
-        `${guide('match')}<div class="i-match tight${D('M05') ? ' solo' : ''}" data-match></div>`, true)
+        `${guide('match')}<div class="i-match stack${D('M05') ? ' solo' : ''}" data-match${el('resp', '선 잇기 칸')}></div>`)
     },
 
     // M06 ─ 과학·단답형 ─ 관련 정보 근접 배치
     {
       id: 'M06', set: 'M', no: 6, school: '중', subject: '과학', type: 'short',
       answer: ['20', '20℃', '20°C'],
-      render: D => stem('그래프는 같은 조건에서 액체 물질 A와 B를 가열할 때의 온도 변화를 나타낸 것입니다. A와 B의 끓는점의 차는 몇 ℃인가요?') +
-        compare(D('M06'), heatCurve('A', 80), heatCurve('B', 100), `${guide('short')}
-          <p class="i-answer-line"><input class="i-input num" inputmode="numeric" autocomplete="off" aria-label="답" placeholder="숫자"> ℃</p>`, true)
+      render: D => compare(D('M06'), stem('그래프는 같은 조건에서 액체 물질 A와 B를 가열할 때의 온도 변화를 나타낸 것입니다. A와 B의 끓는점의 차는 몇 ℃인가요?'),
+        heatCurve('A', 80), heatCurve('B', 100), `${guide('short')}
+          <p class="i-answer-line"${el('resp', '답 입력 칸')}><input class="i-input num" inputmode="numeric" autocomplete="off" aria-label="답" placeholder="숫자"> ℃</p>`, true, ['그래프 A', '그래프 B'])
     },
 
     // M07 ─ 수학·단답형 ─ 응답 방식 인지
@@ -464,7 +471,7 @@
       id: 'M07', set: 'M', no: 7, school: '중', subject: '수학', type: 'short',
       answer: ['6', 'x=6'],
       render: D => stem('일차방정식 3<i>x</i> − 7 = <i>x</i> + 5의 해를 구하세요.') +
-        `<section class="i-resp narrow">${blankAnswer(D('M07'), '<i>x</i> = ', '', '4em')}</section>`
+        `<section class="i-resp narrow">${blankAnswer(D('M07'), '<i>x</i> = ', '', '6.5em')}</section>`
     },
 
     // M08 ─ 사회·끌어 놓기 ─ 응답 결과 표시
@@ -488,9 +495,8 @@
     {
       id: 'M09', set: 'M', no: 9, school: '중', subject: '국어', type: 'short',
       answer: ['직유법', '직유', '직유표현'],
-      render: () => stem('시를 읽고, ㉠에 쓰인 비유법의 이름을 쓰세요.') +
-        `<div class="i-cols">
-          <section class="i-data i-ptext poem scroll"><p class="i-phead">엄마의 아침</p>
+      render: () => split(direction(DIR_POEM) +
+          `<div class="i-data i-ptext poem scroll"${el('data', '시')}><p class="i-phead">엄마의 아침</p>
             <p>새벽마다 김이 오르는 부엌에서</p>
             <p>엄마의 손은 <span class="i-smark"><b>㉠</b> <u>바쁜 시계처럼</u></span>움직인다</p>
             <p>도마 위에 또각또각</p><p>냄비 속에 보글보글</p>
@@ -499,10 +505,9 @@
             <p>엄마는 식탁 위에</p><p>따뜻한 하루를 한 그릇씩 덜어 놓는다</p>
             <p class="stanza">나는 숟가락을 들며 생각한다</p>
             <p>저 손이 멈추지 않는 동안</p>
-            <p>우리 집의 아침은</p><p>한 번도 늦은 적이 없었다고</p></section>
-          <section class="i-resp">${guide('short')}
-            <p class="i-answer-line">답: <input class="i-input word" autocomplete="off" aria-label="답" placeholder="눌러서 쓰기"></p></section>
-        </div>`
+            <p>우리 집의 아침은</p><p>한 번도 늦은 적이 없었다고</p></div>`,
+        stem('㉠에 쓰인 비유법의 이름을 쓰세요.') + guide('short') +
+        `<p class="i-answer-line"${el('resp', '답 입력 칸')}>답: <input class="i-input word" autocomplete="off" aria-label="답" placeholder="눌러서 쓰기"></p>`)
     },
 
     // M10 ─ 수학·끌어 놓기 ─ 결함 없음
@@ -523,14 +528,11 @@
       id: 'M11', set: 'M', no: 11, school: '중', subject: '과학', type: 'choice',
       choices: ['A', 'B, C', 'A, D', 'B, D', 'A, C, D'],
       answer: 2,
-      render: () => stem('표는 물질 A~D의 밀도를 나타낸 것입니다. 물에 넣었을 때 <span class="em-key">뜨는 물질을 모두</span> 고른 것은?') +
-        `<div class="i-cols">
-          <section class="i-data"><table class="i-table">
-            <thead><tr><th>물질</th><th>밀도(g/cm³)</th></tr></thead>
-            <tbody><tr><td>A</td><td>0.8</td></tr><tr><td>B</td><td>1.3</td></tr><tr><td>C</td><td>2.7</td></tr><tr><td>D</td><td>0.5</td></tr></tbody>
-          </table><p class="i-note">※ 물의 밀도는 1.0 g/cm³입니다.</p></section>
-          <section class="i-resp">${guide('choice')}<ol class="i-choices" data-choices></ol></section>
-        </div>`
+      render: () => stem('표는 물질 A~D의 밀도를 나타낸 것입니다. 물에 넣었을 때 <span class="em-key">뜨는 물질을 모두</span> 고른 것은? (단, 물의 밀도는 1.0&nbsp;g/cm³입니다.)') +
+        `<div class="i-data fig table" style="max-width:640px"${el('data', '표')}><table class="i-table wide">
+            <tbody><tr><th>물질</th><td>A</td><td>B</td><td>C</td><td>D</td></tr>
+            <tr><th>밀도(g/cm³)</th><td>0.8</td><td>1.3</td><td>2.7</td><td>0.5</td></tr></tbody>
+          </table></div>` + CHOICES
     },
 
     // M12 ─ 사회·선 잇기 ─ 결함 없음
@@ -544,7 +546,7 @@
       right: [{ id: 'delta', html: '삼각주' }, { id: 'vv', html: 'V자곡' }, { id: 'fan', html: '선상지' }],
       answer: { v: 'vv', f: 'fan', d: 'delta' },
       render: () => stem('그림 ㉮~㉰가 나타내는 하천 지형의 이름을 찾아 알맞게 선으로 이으세요.') +
-        `<section class="i-resp">${guide('match')}<div class="i-match land" data-match></div></section>`
+        `<section class="i-resp">${guide('match')}<div class="i-match land" data-match${el('resp', '선 잇기 칸')}></div></section>`
     }
   ];
 

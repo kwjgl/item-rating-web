@@ -159,6 +159,27 @@
   .crit-def { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
   .crit-cue { color: var(--ink); font-size: 15px; font-weight: 600; }
   .rb-t b { font-weight: 700; }
+  /* 지표 판단 (충족 / 미충족 / 해당 없음 + 근거 요소) */
+  .ind { border-top: 1px solid var(--line); padding: 12px 0 12px; }
+  .ind:first-of-type { border-top: 0; padding-top: 4px; }
+  .ind.missing .ind-h { color: var(--warn); }
+  .ind-h { margin: 0 0 8px; font-size: 14.5px; line-height: 1.5; }
+  .ind-h b { font-size: 15.5px; margin-right: 4px; }
+  .ind-opts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .jd-btn { min-height: 42px; border: 1.5px solid var(--line); background: var(--panel); border-radius: 8px; font-size: 15px; cursor: pointer; }
+  .panel.locked .jd-btn, .panel.locked .ev-chip { opacity: .35; pointer-events: none; }
+  .jd-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  .jd-btn.jd-unmet.on { border-color: #C2410C; background: #FFF1E8; color: #9A3412; }
+  .ind-ev { margin-top: 8px; padding: 10px; border-radius: 8px; background: #FFF7F1; border: 1px solid #F5D3BE; }
+  .ev-q { margin: 0 0 8px; font-size: 13.5px; color: #7C2D12; }
+  .ev-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .ev-chip { min-height: 36px; padding: 4px 10px; border-radius: 999px; border: 1.5px solid #E5B79B; background: #fff; font-size: 14px; cursor: pointer; }
+  .ev-chip .ev-n { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; margin-right: 6px;
+                   border-radius: 5px; background: #6D28D9; color: #fff; font-size: 13px; }
+  .ev-chip.on { background: #C2410C; border-color: #C2410C; color: #fff; }
+  .ev-chip.on .ev-n { background: #fff; color: #6D28D9; }
+  .ev-note { width: 100%; min-height: 38px; padding: 6px 10px; border-radius: 6px; border: 1.5px solid #E5B79B; font: inherit; font-size: 14px; }
+  .crit-steps b { font-size: 14px !important; }
   /* 준거 아래 지표(판단 단서) */
   .crit-inds { margin: 0 0 8px; padding: 8px 10px 8px 26px; background: #F5F7FA; border-radius: 8px; font-size: 14px; line-height: 1.5; color: var(--ink); }
   .crit-inds li + li { margin-top: 3px; }
@@ -493,7 +514,7 @@ function chooseLevel() {
     firstRatingMs: null,  // 첫 평정 버튼을 누를 때까지
     lastRatingMs: null,   // 마지막으로 평정 버튼을 누를 때까지 (평정 시간 ≈ 이 값 − 풀이 시간)
     lateInteractions: 0,  // 평정을 시작한 뒤에 다시 조작한 횟수
-    ratings: {}, ratingChanges: 0, comment: ''
+    judgments: {}, judgmentChanges: 0, comment: ''
   }));
 }
 
@@ -538,10 +559,30 @@ function seenMs(log) {
   return log.visibleMs + (log._enter != null ? now() - log._enter : 0);
 }
 
+// 평정: 문항마다 지표 14개를 '충족 / 미충족 / 해당 없음' 중 하나로 판단한다.
+// '미충족'이면 문항 화면에 번호로 표시된 요소 가운데 근거가 된 요소를 하나 이상 고른다(메모는 선택, '그 밖의 요소'면 필수).
+// log.judgments = { I01: { v: 'met' | 'unmet' | 'na', els: [요소 key…], note: '' }, … }
+const JUDGE = [['met', '충족'], ['unmet', '미충족'], ['na', '해당 없음']];
+const OTHER_EL = { key: 'other', name: '그 밖의 요소(메모에 적기)' };
+
+function allIndicators() {
+  const out = [];
+  (surveyDef().criteria || []).forEach(c => (c.indicators || []).forEach(x => out.push(Object.assign({ crit: c.key }, x))));
+  return out;
+}
+
+/** 지표 하나의 판단이 끝났는가 (미충족이면 근거 요소까지) */
+function judgmentDone(j) {
+  if (!j || !j.v) return false;
+  if (j.v !== 'unmet') return true;
+  if (!j.els || !j.els.length) return false;
+  if (j.els.indexOf('other') >= 0 && !String(j.note || '').trim()) return false;
+  return true;
+}
+
 function isComplete(log) {
   const P = surveyDef();
-  const keys = (P.criteria || []).map(c => c.key);
-  if (keys.some(k => log.ratings[k] == null)) return false;
+  if (allIndicators().some(x => !judgmentDone(log.judgments[x.id]))) return false;
   if (P.requireComment && !String(log.comment).trim()) return false;
   return true;
 }
@@ -555,23 +596,9 @@ function renderRating(cur, missingList = []) {
   const P = surveyDef();
   const unlocked = !S.study.requireInteraction || log.interactions > 0 || log.failedTries > 0;
   const doneCount = R.items.filter(isComplete).length;
-  // 준거를 하나씩 보여 줄 때 지금 보이는 준거: 처음엔 아직 안 매긴 첫 준거
-  const keys = (P.criteria || []).map(c => c.key);
-  const stepping = !!(P.stepCriteria && keys.length > 1);
-  let step = Math.max(0, keys.findIndex(k => log.ratings[k] == null));
-  let stepTimer = null;
-  function showStep(i) {
-    step = i;
-    const panel = document.getElementById('panel');
-    panel.querySelectorAll('fieldset[data-crit]').forEach((fs, j) => { fs.hidden = j !== i; });
-    panel.querySelectorAll('.crit-step').forEach((x, j) => {
-      x.classList.toggle('cur', j === i);
-      const v = log.ratings[keys[j]];
-      x.querySelector('b').textContent = v == null ? '–' : v;
-      if (v != null) x.classList.remove('missing');
-    });
-    panel.scrollTop = 0;
-  }
+  const crits = P.criteria || [];
+  // 처음 보이는 준거 칸: 아직 다 판단하지 않은 첫 준거
+  let step = Math.max(0, crits.findIndex(c => (c.indicators || []).some(x => !judgmentDone(log.judgments[x.id]))));
 
   const chips = `<nav class="chips" aria-label="문항 이동">
     ${R.items.map((x, i) => {
@@ -591,7 +618,7 @@ function renderRating(cur, missingList = []) {
     body: `<div class="rate">
       <div class="stage">
         <div class="stage-bar">
-          <p class="stage-note">아래는 학생이 보는 문항 화면입니다. 직접 풀어 보세요.</p>
+          <p class="stage-note">아래는 학생이 보는 문항 화면입니다. 직접 풀어 보세요. 평정 대상은 가운데 흰 칸(문항 화면)뿐입니다.</p>
           <button type="button" class="stage-btn" id="full">전체 화면으로 보기</button>
         </div>
         <div class="stage-area" id="stagearea">
@@ -610,14 +637,69 @@ function renderRating(cur, missingList = []) {
 
   const screen = document.getElementById('screen');
   const canvas = document.getElementById('canvas');
+  const panel = document.getElementById('panel');
   fitScreen();
   mountItem(canvas, it, log, () => {
     // 첫 조작 시 평정 열기
-    const panel = document.getElementById('panel');
-    if (panel && panel.classList.contains('locked')) {
-      panel.classList.remove('locked'); panel.classList.add('open');
-    }
+    if (panel.classList.contains('locked')) { panel.classList.remove('locked'); panel.classList.add('open'); }
   }, cur + 1, n);
+
+  // 근거 요소 목록(문항 화면에 보이는 요소 + 그 밖의 요소)을 평정 칸에 채우고, 미충족이 있으면 문항 화면에 번호를 띄운다
+  function evidenceChips(id) {
+    const j = log.judgments[id] || {};
+    const els = (ITEM_VIEW ? ITEM_VIEW.elements() : []).concat([Object.assign({ n: '' }, OTHER_EL)]);
+    return els.map(e => {
+      const on = (j.els || []).indexOf(e.key) >= 0;
+      return `<button type="button" class="ev-chip${on ? ' on' : ''}" aria-pressed="${on}" data-ind="${id}" data-el="${e.key}">` +
+        `${e.n ? `<b class="ev-n">${e.n}</b>` : ''}${esc(e.name)}</button>`;
+    }).join('');
+  }
+  function paintIndicator(id) {
+    const box = panel.querySelector(`.ind[data-ind="${id}"]`); if (!box) return;
+    const j = log.judgments[id] || {};
+    box.querySelectorAll('.jd-btn').forEach(x => { const on = x.dataset.v === j.v; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    const ev = box.querySelector('.ind-ev');
+    ev.hidden = j.v !== 'unmet';
+    if (!ev.hidden) box.querySelector('.ev-chips').innerHTML = evidenceChips(id);
+    if (judgmentDone(j)) box.classList.remove('missing');
+  }
+  function paintSteps() {
+    panel.querySelectorAll('.crit-step').forEach((x, i) => {
+      const inds = crits[i].indicators || [];
+      const done = inds.filter(d => judgmentDone(log.judgments[d.id])).length;
+      x.querySelector('b').textContent = `${done}/${inds.length}`;
+      x.classList.toggle('cur', i === step);
+      if (done === inds.length) x.classList.remove('missing');
+    });
+  }
+  function showStep(i) {
+    step = i;
+    panel.querySelectorAll('fieldset[data-crit]').forEach((fs, j) => { fs.hidden = j !== i; });
+    paintSteps();
+    panel.scrollTop = 0;
+  }
+  function syncNums() {
+    const any = Object.keys(log.judgments).some(k => log.judgments[k].v === 'unmet');
+    if (ITEM_VIEW) ITEM_VIEW.showElements(any);
+  }
+  function touched() {
+    const t = Math.round(seenMs(log));
+    if (log.firstRatingMs === null) log.firstRatingMs = t;
+    log.lastRatingMs = t;
+    const chip = app.querySelector(`.chip[data-go="${cur}"]`);
+    if (chip && isComplete(log)) chip.classList.remove('missing');
+    if (isComplete(log)) { const msg = document.getElementById('msg'); if (msg && !missingList.length) msg.textContent = ''; }
+    paintSteps();
+  }
+  // 이 문항 화면의 근거 요소 목록(번호·이름)을 함께 저장 — 시트의 evidence 열에 '번호 이름'으로 남는다
+  log.elementMap = {};
+  (ITEM_VIEW ? ITEM_VIEW.elements() : []).forEach(e => { log.elementMap[e.key] = { n: e.n, name: e.name }; });
+  log.elementMap.other = { n: '', name: OTHER_EL.name };
+  allIndicators().forEach(x => paintIndicator(x.id));
+  paintSteps();
+  syncNums();
+  // 글꼴을 늦게 받아 배치가 바뀌면 번호 자리를 다시 잡는다
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (panel.isConnected) { syncNums(); } });
 
   // 타이머
   activeTimer = {
@@ -627,45 +709,39 @@ function renderRating(cur, missingList = []) {
   };
   activeTimer.enter();
 
-  // 평정 패널
+  // 평정 칸
   app.oninput = e => {
     if (e.target.id === 'comment') {
       log.comment = e.target.value;
       e.target.closest('fieldset').classList.remove('missing');
+    } else if (e.target.classList.contains('ev-note')) {
+      const j = log.judgments[e.target.dataset.ind]; if (!j) return;
+      j.note = e.target.value;
+      if (judgmentDone(j)) e.target.closest('.ind').classList.remove('missing');
+      touched();
     }
   };
   app.onclick = e => {
     const b = e.target.closest('button');
     if (!b || screen.contains(b)) return;
     if (b.id === 'full') { toggleFullscreen(true); return; }
-    if (b.classList.contains('rate-btn')) {
-      const k = b.dataset.crit, v = Number(b.dataset.v);
-      if (log.ratings[k] != null && log.ratings[k] !== v) log.ratingChanges++;
-      log.ratings[k] = v;
-      const t = Math.round(seenMs(log));
-      if (log.firstRatingMs === null) log.firstRatingMs = t;
-      log.lastRatingMs = t;
-      b.parentElement.querySelectorAll('.rate-btn').forEach(x => {
-        x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b);
-      });
-      const fs = b.closest('fieldset'); if (fs) fs.classList.remove('missing');
-      const chip = app.querySelector(`.chip[data-go="${cur}"]`);
-      if (chip && isComplete(log)) chip.classList.remove('missing');
-      if (isComplete(log)) { const msg = document.getElementById('msg'); if (msg && !missingList.length) msg.textContent = ''; }
-      if (stepping) {
-        // 고른 점수가 잠깐 보이게 한 뒤, 아직 안 매긴 다음 준거로 넘어감 (다 매겼으면 그 자리에 둠)
-        const i = keys.indexOf(k);
-        showStep(i);
-        const order = keys.map((_, j) => (i + 1 + j) % keys.length);
-        const nxt = order.find(j => log.ratings[keys[j]] == null);
-        // 예약은 하나만 두고, 그사이 다른 문항으로 옮겨 갔으면(평정 칸이 새로 그려졌으면) 넘기지 않음
-        clearTimeout(stepTimer);
-        const panelNow = document.getElementById('panel');
-        if (nxt !== undefined) stepTimer = setTimeout(() => { if (panelNow.isConnected) showStep(nxt); }, 300);
-      }
+    if (b.classList.contains('jd-btn')) {
+      const id = b.dataset.ind, v = b.dataset.v;
+      const j = log.judgments[id] || (log.judgments[id] = { v: '', els: [], note: '' });
+      if (j.v && j.v !== v) log.judgmentChanges++;
+      j.v = v;
+      if (v !== 'unmet') { j.els = []; j.note = ''; const nt = panel.querySelector(`.ev-note[data-ind="${id}"]`); if (nt) nt.value = ''; }
+      paintIndicator(id); syncNums(); touched();
       return;
     }
-    if (b.classList.contains('crit-step')) { clearTimeout(stepTimer); showStep(Number(b.dataset.step)); return; }
+    if (b.classList.contains('ev-chip')) {
+      const j = log.judgments[b.dataset.ind]; if (!j) return;
+      const k = b.dataset.el, i = j.els.indexOf(k);
+      if (i >= 0) j.els.splice(i, 1); else j.els.push(k);
+      paintIndicator(b.dataset.ind); touched();
+      return;
+    }
+    if (b.classList.contains('crit-step')) { showStep(Number(b.dataset.step)); return; }
     if (b.dataset.go !== undefined) { renderRating(Number(b.dataset.go)); return; }
     if (b.id === 'prev' && cur > 0) { renderRating(cur - 1); return; }
     if (b.id === 'next') {
@@ -675,13 +751,9 @@ function renderRating(cur, missingList = []) {
           msg.textContent = '문항을 먼저 직접 풀어 보신 뒤 평정해 주세요.';
           return;
         }
-        markMissing(log, P);
-        if (stepping) {
-          const miss = keys.findIndex(k2 => log.ratings[k2] == null);
-          app.querySelectorAll('.crit-step').forEach((x, j) => x.classList.toggle('missing', log.ratings[keys[j]] == null));
-          if (miss >= 0) showStep(miss);
-        }
-        msg.textContent = '빨간색으로 표시된 평정을 마쳐 주세요.';
+        const miss = markMissing(log, P);
+        if (miss >= 0) showStep(miss);
+        msg.textContent = '빨간색으로 표시된 지표를 판단해 주세요. 미충족이면 근거 요소를 골라 주세요.';
         return;
       }
       if (cur < n - 1) { renderRating(cur + 1); return; }
@@ -693,50 +765,56 @@ function renderRating(cur, missingList = []) {
   };
 }
 
+/** 판단이 덜 된 지표를 빨갛게 표시하고, 그런 지표가 있는 첫 준거 칸의 차례를 돌려준다 */
 function markMissing(log, P) {
   const panel = document.getElementById('panel');
-  let first = null;
-  panel.querySelectorAll('fieldset[data-crit]').forEach(fs => {
-    const miss = log.ratings[fs.dataset.crit] == null;
-    fs.classList.toggle('missing', miss);
-    if (miss && !first) first = fs;
+  let first = -1;
+  (P.criteria || []).forEach((c, i) => {
+    let miss = false;
+    (c.indicators || []).forEach(x => {
+      const m = !judgmentDone(log.judgments[x.id]);
+      const box = panel.querySelector(`.ind[data-ind="${x.id}"]`);
+      if (box) box.classList.toggle('missing', m);
+      if (m) miss = true;
+    });
+    const tab = panel.querySelectorAll('.crit-step')[i];
+    if (tab) tab.classList.toggle('missing', miss);
+    if (miss && first < 0) first = i;
   });
   const cfs = panel.querySelector('fieldset.comment');
-  if (P.requireComment && cfs && !String(log.comment).trim()) {
-    cfs.classList.add('missing'); if (!first) first = cfs;
-  }
-  if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (P.requireComment && cfs && !String(log.comment).trim()) cfs.classList.add('missing');
+  return first;
 }
 
 function panelHtml(log, P, step) {
   const lock = `<p class="lock-note">왼쪽(또는 위쪽) 문항을 먼저 직접 풀어 보신 뒤 평정해 주세요.</p>`;
-
-  // 준거별 평정 (있는 경우). stepCriteria 면 준거를 하나씩만 보여 줌(나머지는 숨김)
   const cs = P.criteria || [];
-  const steps = P.stepCriteria && cs.length > 1
-    ? `<nav class="crit-steps" style="--steps:${cs.length}" aria-label="평정 준거">${cs.map((c, i) =>
-        `<button type="button" class="crit-step${i === step ? ' cur' : ''}" data-step="${i}">${esc(c.short || c.name)}<b>${log.ratings[c.key] == null ? '–' : log.ratings[c.key]}</b></button>`).join('')}</nav>`
-    : '';
+  const steps = `<nav class="crit-steps" style="--steps:${cs.length}" aria-label="평정 준거">${cs.map((c, i) =>
+    `<button type="button" class="crit-step${i === step ? ' cur' : ''}" data-step="${i}">${esc(c.short || c.name)}<b>–</b></button>`).join('')}</nav>`;
   const crits = cs.map((c, i) => `
-    <fieldset class="crit" data-crit="${c.key}"${steps && i !== step ? ' hidden' : ''}>
+    <fieldset class="crit" data-crit="${c.key}"${i !== step ? ' hidden' : ''}>
       <legend>${esc(c.name)}</legend>
-      ${c.cue ? `<p class="crit-def crit-cue">${esc(c.cue)}</p>` : `<p class="crit-def">${esc(c.definition)}</p>`}
-      ${(c.indicators || []).length ? `<ul class="crit-inds">${c.indicators.map(x =>
-        `<li><b>${esc(x.name)}</b> ${esc(x.text)}</li>`).join('')}</ul>
-        ${P.indicatorNote ? `<p class="crit-note">${esc(P.indicatorNote)}</p>` : ''}` : ''}
-      <div class="crit-opts">
-        ${(P.scaleOrder === 'desc' ? c.levels.map((t, i) => [t, i + 1]).reverse() : c.levels.map((t, i) => [t, i + 1])).map(([t, v]) => {
-          const on = log.ratings[c.key] === v;
-          return `<button type="button" class="rate-btn ${on ? 'on' : ''}" aria-pressed="${on}" data-crit="${c.key}" data-v="${v}">
-            <span class="rb-n">${v}</span><span class="rb-t">${rich(t)}</span></button>`;
-        }).join('')}
-      </div>
+      ${(c.indicators || []).map(x => {
+        const j = log.judgments[x.id] || {};
+        return `<div class="ind" data-ind="${x.id}">
+          <p class="ind-h"><b>${esc(x.name)}</b> ${esc(x.text)}</p>
+          <div class="ind-opts">${JUDGE.map(([v, t]) =>
+            `<button type="button" class="jd-btn jd-${v}" aria-pressed="false" data-ind="${x.id}" data-v="${v}">${t}</button>`).join('')}</div>
+          <div class="ind-ev" hidden>
+            <p class="ev-q">근거가 된 화면 요소를 모두 고르세요. 번호는 문항 화면의 보라색 번호입니다.</p>
+            <div class="ev-chips"></div>
+            <input type="text" class="ev-note" data-ind="${x.id}" value="${esc(j.note || '')}" placeholder="근거를 짧게 적어 주세요 (선택)">
+          </div>
+        </div>`;
+      }).join('')}
     </fieldset>`).join('');
 
   const comment = `<fieldset class="field comment"><legend>${esc(P.commentLabel)}${P.requireComment ? '' : ' (선택)'}</legend>
-    <textarea id="comment" rows="${crits ? 3 : 4}">${esc(log.comment)}</textarea></fieldset>`;
+    <textarea id="comment" rows="3">${esc(log.comment)}</textarea></fieldset>`;
 
-  return `<h2>평정</h2>${lock}${steps}${crits}${comment}`;
+  return `<h2>평정</h2>${lock}
+    ${P.indicatorNote ? `<p class="crit-note">${esc(P.indicatorNote)}</p>` : ''}
+    ${steps}${crits}${comment}`;
 }
 
 // ---------- 5. 문항 화면 그리기 ----------

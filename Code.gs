@@ -32,9 +32,9 @@
  *
  * [응답 시트 구성]
  *   participants : 참여자 한 명당 한 줄 (세트 level, 기본 정보, 소요 시간, 문항 제시 순서, 결함 상태, 마지막 의견)
- *   ratings      : 평정 한 개당 한 줄 → 다국면 라쉬(FACETS) 분석용 긴 형식
- *                  (평정자 pid × 문항 item_id × 준거 criterion → score, flawed = 이 준거에 결함을 넣었는가)
- *   items        : 문항 한 개당 한 줄 → 조작 로그 (본 시간, 조작 횟수, 정답 확인·연습장 사용, 응답, 정답 여부, 의견)
+ *   judgments    : 지표 판단 한 개당 한 줄 (교사 × 문항 × 지표 14개 → 충족/미충족/해당 없음, 근거 요소, 판단 유형)
+ *   items        : 문항 한 개당 한 줄 → 조작 로그 + 판단 요약 (결함 탐지 여부, 준거 일치/혼동, 과잉 판단 수)
+ *   summary      : summarize 를 실행하면 만들어짐 → 결함 탐지율·준거 일치율·과잉 판단율 (전체·학교급·교사·문항·지표별)
  *   codes        : 참여 코드 관리
  *
  * ※ 문항·준거·결함 설정을 바꾼 뒤에는 toolVersion 을 바꾸고, 필요하면 setup을 다시 실행해 새 시트를 만드세요.
@@ -84,100 +84,64 @@ const STUDY = {
 };
 
 // ===================== 2. 평정 설정 =====================
-// 평정 단위: 준거 4개(준거별 5점). 지표 14개는 각 준거 안의 판단 단서로 보여 줍니다.
+// 평정 단위: 문항마다 지표 14개를 '충족 / 미충족 / 해당 없음' 중 하나로 판단합니다(점수별 기술문 없음).
+// '미충족'이면 문항 화면에 번호로 표시된 요소 가운데 근거가 된 요소를 하나 이상 고릅니다.
+// 이 근거 요소를 DEFECTS.elements(의도한 결함 요소)와 대조해 결함 탐지·준거 일치·과잉 판단을 가립니다(summarize).
 const SURVEY = {
   name: '문항 평정',
   guide:
     '선생님 학교급에 맞는 문항 12개를 하나씩 보여 드립니다.\n' +
-    '각 문항을 학생이 된 것처럼 직접 풀어 보신 뒤, 제시된 평정 준거 4개에 따라 평정해 주세요.\n' +
-    '준거마다 판단 단서(지표)가 함께 나옵니다. 모든 지표는 그 문항이 측정하려는 능력과 응시 학습자에 비추어 판단해 주세요.\n' +
-    '각 준거의 점수별 설명을 읽고 문항에 가장 가까운 점수를 골라 주시면 됩니다.\n' +
-    '평정 대상은 가운데 흰 칸(문항 화면)입니다. 위쪽 띠와 오른쪽 칸(연습장·문항 번호·정답 확인)은 평가 플랫폼에 공통으로 있는 것이라 평정하지 않습니다.',
-  // 평정 칸에서 준거를 하나씩 보여 줍니다(위쪽 요약 칸을 눌러 오감, 점수를 고르면 다음 준거로 넘어감).
-  stepCriteria: true,
-  // 평정 칸에서 점수가 보이는 차례. 'desc' = 5점(맨 위) → 1점(맨 아래). 조사 중에는 바꾸지 마세요.
-  scaleOrder: 'desc',
-  // ※ 준거 4개, 지표 14개(최종 준거). 결함 문항 8개에는 지표 하나의 결함만 들어가 있습니다(아래 DEFECTS).
-  //   indicators : 평정 칸에서 준거 아래에 보이는 판단 단서. 이름과 내용은 최종 준거표와 글자까지 같아야 합니다.
-  //   levels     : 1점 → 5점 차례. <b>굵게</b>는 점수를 가르는 말입니다.
-  //   ※ levels(점수별 기술문)는 예전 준거 때 확정한 문구를 그대로 두었습니다. 준거 이름이 바뀌었으므로
-  //     지표 14개와 맞는지 연구자가 다시 확인해 주세요(특히 C3 의 '탭·팝업·페이지', '문두·선택지' 표현).
-  //   cue   : 평정 칸에서 준거 이름 바로 아래에 보이는 한 줄
-  //   short : 평정 칸 위쪽 요약 칸에 쓰는 짧은 이름
+    '각 문항을 학생이 된 것처럼 직접 풀어 보신 뒤, 준거별 지표마다 충족 여부를 \'충족\', \'미충족\', \'해당 없음\' 중 하나로 판단해 주세요.\n' +
+    '\'미충족\'으로 판단한 지표에는 근거가 된 화면 요소를 골라 주세요. 미충족을 고르면 문항 화면에 요소 번호가 나타납니다.\n' +
+    '모든 지표는 그 문항이 측정하려는 능력과 응시 학습자에 비추어 판단해 주세요.\n' +
+    '평정 대상은 가운데 흰 칸(문항 화면)입니다. 위쪽 띠와 아래쪽 띠(연습장·문항 번호·정답 확인)는 평가 플랫폼에 공통으로 있는 것이라 평정하지 않습니다.',
+  // 준거 4개, 지표 14개(최종 준거). id 는 시트의 indicator_id 열에 남고, DEFECTS.indicator 가 이 id 를 가리킵니다.
+  // 이름과 내용은 최종 준거표와 글자까지 같아야 합니다.
+  //   short : 평정 칸 위쪽 준거 칸(탭)에 쓰는 짧은 이름
   criteria: [
     {
-      key: 'C1', name: '화면 요소의 필요성', short: '필요성', cue: '없어도 될 것이 있는가',
-      definition: '풀이에 필요하지 않은 요소가 풀이를 방해하지 않는지 판단한다.',
+      key: 'C1', name: '화면 요소의 필요성', short: '필요성',
       indicators: [
-        { name: '정보 선별', text: '화면의 정보는 풀이와 응답에 필요한 것으로 한정된다.' },
-        { name: '장식 절제', text: '주의를 분산시키는 장식 요소는 제시되지 않는다.' },
-        { name: '반복 최소화', text: '같은 정보는 풀이에 도움이 될 때에만 다른 형식으로 반복 제시된다.' }
-      ],
-      levels: [
-        '불필요한 요소가 화면을 크게 차지해 정보 탐색이 <b>매우 어렵다</b>.',
-        '불필요한 요소의 강조나 정보의 중복이 정보 탐색을 <b>방해한다</b>.',
-        '불필요한 요소가 눈에 띄나, 정보 탐색에 <b>큰 지장이 없다</b>.',
-        '불필요한 요소가 있으나, <b>거의 눈에 띄지 않는다</b>.',
-        '불필요한 요소가 없다.'
+        { id: 'I01', name: '정보 선별', text: '화면의 정보는 풀이와 응답에 필요한 것으로 한정된다.' },
+        { id: 'I02', name: '장식 절제', text: '주의를 분산시키는 장식 요소는 제시되지 않는다.' },
+        { id: 'I03', name: '반복 최소화', text: '같은 정보는 풀이에 도움이 될 때에만 다른 형식으로 반복 제시된다.' }
       ]
     },
     {
-      key: 'C2', name: '화면 정보의 명료성', short: '명료성', cue: '있어야 할 것이 잘 안 보이는가',
-      definition: '필요한 정보를 서로 구분하고 읽기 쉽게 제시했는지 판단한다.',
+      key: 'C2', name: '화면 정보의 명료성', short: '명료성',
       indicators: [
-        { name: '가독성', text: '글자와 시각 자료는 읽기에 적절한 크기·대비·간격으로 제시된다.' },
-        { name: '색 외 구분 단서', text: '색으로 구분되는 정보는 모양·글자·위치로도 구분된다.' },
-        { name: '영역 구분', text: '문두, 지문·자료, 응답 영역은 경계가 시각적으로 구분된다.' },
-        { name: '핵심 정보 강조', text: '풀이에 필요한 핵심 정보는 강조되고, 그 밖의 정보는 강조되지 않는다.' }
-      ],
-      levels: [
-        '정보 구분이나 글자 읽기가 <b>매우 어렵다</b>.',
-        '불분명한 경계나 낮은 가독성이 정보 구분과 읽기를 <b>방해한다</b>.',
-        '중요 정보가 두드러지지 않거나, 일부 글자를 <b>주의해서 읽어야 한다</b>.',
-        '강조나 가독성이 다소 부족하나, 풀이에 <b>지장이 없다</b>.',
-        '정보가 뚜렷이 구분되고, 중요 정보가 먼저 보이며, 글자가 쉽게 읽힌다.'
+        { id: 'I04', name: '가독성', text: '글자와 시각 자료는 읽기에 적절한 크기·대비·간격으로 제시된다.' },
+        { id: 'I05', name: '색 외 구분 단서', text: '색으로 구분되는 정보는 모양·글자·위치로도 구분된다.' },
+        { id: 'I06', name: '영역 구분', text: '문두, 지문·자료, 응답 영역은 경계가 시각적으로 구분된다.' },
+        { id: 'I07', name: '핵심 정보 강조', text: '풀이에 필요한 핵심 정보는 강조되고, 그 밖의 정보는 강조되지 않는다.' }
       ]
     },
     {
-      key: 'C3', name: '관련 정보의 통합성', short: '통합성', cue: '함께 봐야 할 것이 떨어져 있는가',
-      definition: '응답하는 동안 함께 보아야 할 정보(지문·문두·선택지·자료 등)를 서로 오가며 확인하기 쉽게 배치했는지 판단한다.',
+      key: 'C3', name: '관련 정보의 통합성', short: '통합성',
       indicators: [
-        { name: '문두·응답 동시 제시', text: '문두와 응답 영역은 풀이하는 동안 한 화면에 함께 제시된다.' },
-        { name: '지문·자료 참조', text: '지문·자료는 응답 영역이 보이는 상태에서 참조할 수 있게 제시된다.' },
-        { name: '관련 정보 근접 배치', text: '함께 보아야 할 정보는 한 화면 안에서 가까이 제시된다.' }
-      ],
-      levels: [
-        '정보가 <b>탭·팝업·페이지로 분리</b>되어 응답 중에 참조할 수 없다.',
-        '지문·자료를 볼 때 문두·선택지가 <b>모두 화면을 벗어나</b> 참조하기 어렵다.',
-        '지문·자료를 볼 때 문두·선택지 <b>중 하나가</b> 화면을 벗어난다.',
-        '문두·선택지가 <b>항상 보이나</b>, 지문·자료를 보려면 시선을 멀리 옮기거나 간단한 조작이 필요하다.',
-        '문두·선택지가 항상 보이고, 지문·자료도 같은 화면에서 바로 참조 가능하다.'
+        { id: 'I08', name: '문두·응답 동시 제시', text: '문두와 응답 영역은 풀이하는 동안 한 화면에 함께 제시된다.' },
+        { id: 'I09', name: '지문·자료 참조', text: '지문·자료는 응답 영역이 보이는 상태에서 참조할 수 있게 제시된다.' },
+        { id: 'I10', name: '관련 정보 근접 배치', text: '함께 보아야 할 정보는 한 화면 안에서 가까이 제시된다.' }
       ]
     },
     {
-      key: 'C4', name: '응답 조작의 용이성', short: '조작', cue: '응답하고 확인하기 번거로운가',
-      definition: '답을 아는 학생이 응답을 입력하고 그 결과를 확인하는 조작이 풀이를 방해하지 않는지 판단한다.',
+      key: 'C4', name: '응답 조작의 용이성', short: '조작',
       indicators: [
-        { name: '응답 방식 인지', text: '응답 조작 방식은 화면 표시나 간단한 안내로 제시된다.' },
-        { name: '조작 간결성', text: '응답 조작은 측정 구인과 무관한 단계 없이 구성된다.' },
-        { name: '조작 대상 크기', text: '터치·클릭 대상은 조작하기에 충분한 크기·간격으로 제시된다.' },
-        { name: '응답 결과 표시', text: '선택·입력한 응답은 즉시 분명하게 표시된다.' }
-      ],
-      levels: [
-        '조작이 매우 번거롭거나 입력 결과가 보이지 않아 응답을 <b>이어가기 어렵다</b>.',
-        '번거로운 조작이나 불명확한 입력 결과 표시가 응답·확인을 <b>방해한다</b>.',
-        '조작이나 입력 결과 확인에 <b>추가 시도나 주의가 필요하다</b>.',
-        '조작 방식이나 입력 결과 표시가 다소 낯설지만, 풀이에 <b>지장이 없다</b>.',
-        '조작이 간편하고, 입력 결과가 즉시 보인다.'
+        { id: 'I11', name: '응답 방식 인지', text: '응답 조작 방식은 화면 표시나 간단한 안내로 제시된다.' },
+        { id: 'I12', name: '조작 간결성', text: '응답 조작은 측정 구인과 무관한 단계 없이 구성된다.' },
+        { id: 'I13', name: '조작 대상 크기', text: '터치·클릭 대상은 조작하기에 충분한 크기·간격으로 제시된다.' },
+        { id: 'I14', name: '응답 결과 표시', text: '선택·입력한 응답은 즉시 분명하게 표시된다.' }
       ]
     }
   ],
-  // 지표 아래에 한 번 보여 주는 공통 단서
+  // 평정 칸 맨 위에 한 번 보여 주는 공통 단서
   indicatorNote: '모든 지표는 이 문항이 측정하려는 능력과 응시 학습자에 비추어 판단합니다.',
   commentLabel: '이 문항에 대해 덧붙일 의견이 있으면 적어 주세요.',
   requireComment: false,
+  // 모든 문항의 평정을 마친 뒤 묻는 개방형 질문
   finalQuestions: [
-    { key: 'tool', label: '평정 준거와 지표를 사용해 보시면서 어렵거나 고쳤으면 하는 점을 적어 주세요.', required: false }
+    { key: 'hard', label: '판단하기 어려웠던 지표가 있었다면, 그 지표와 이유를 적어 주세요.', required: false },
+    { key: 'use', label: '준거와 지표를 활용하는 것에 대한 의견을 적어 주세요.', required: false }
   ]
 };
 
@@ -201,7 +165,7 @@ const DEMO = [
  * 14개 지표를 모두 충족하는 판으로 나갑니다. 화면 차이는 items/items.js 에 있습니다.
  * 바꾼 뒤에는 toolVersion 을 바꾸세요(시트의 defect_on 열에도 그 사람이 본 상태가 남습니다).
  *
- *   지표              결함 방식                                         초등   중등
+ *   지표(id)           결함 방식                                         초등   중등
  *   정보 선별          응답 영역 아래 풀이와 무관한 덧붙임 지식 상자            E01    M01
  *   장식 절제          문두 옆, 문두보다 큰 정지 캐릭터                       E02    M02
  *   색 외 구분 단서     그림 요소를 색으로만 구분, 문항도 색 이름으로만 가리킴     E03    M03
@@ -211,23 +175,28 @@ const DEMO = [
  *   응답 방식 인지      입력 칸이 본문 괄호와 똑같이 보이고 안내 없음             E07    M07
  *   응답 결과 표시      칸에 놓은 카드가 글자 없는 작은 점으로만 보임             E08    M08
  */
+// indicator = SURVEY 의 지표 id, elements = '의도한 결함 요소'(items/items.js 의 data-el 이름).
+// 교사가 '미충족'의 근거로 고른 요소에 이 중 하나가 있으면 결함 탐지, 없으면 과잉 판단으로 봅니다.
+//   요소 이름: extra(더 알아보기 상자) · mascot(캐릭터 그림) · data(지문·그림·자료) · resp(선택지·답 칸·선 잇기 칸)
+//             stem(문두) · popup(지문 보기 단추) · dataA·dataB(떨어진 두 자료) · bins(카드 놓는 칸) · bank(카드) · guide(안내)
+//             direction(국어 지시문 "다음 글을 읽고, 물음에 답하세요.") · other(그 밖의 요소 — 교사 메모로 확인)
 const DEFECTS = {
-  E01: { on: true, criterion: 'C1', indicator: '정보 선별' },
-  E02: { on: true, criterion: 'C1', indicator: '장식 절제' },
-  E03: { on: true, criterion: 'C2', indicator: '색 외 구분 단서' },
-  E04: { on: true, criterion: 'C2', indicator: '핵심 정보 강조' },
-  E05: { on: true, criterion: 'C3', indicator: '지문·자료 참조' },
-  E06: { on: true, criterion: 'C3', indicator: '관련 정보 근접 배치' },
-  E07: { on: true, criterion: 'C4', indicator: '응답 방식 인지' },
-  E08: { on: true, criterion: 'C4', indicator: '응답 결과 표시' },
-  M01: { on: true, criterion: 'C1', indicator: '정보 선별' },
-  M02: { on: true, criterion: 'C1', indicator: '장식 절제' },
-  M03: { on: true, criterion: 'C2', indicator: '색 외 구분 단서' },
-  M04: { on: true, criterion: 'C2', indicator: '핵심 정보 강조' },
-  M05: { on: true, criterion: 'C3', indicator: '지문·자료 참조' },
-  M06: { on: true, criterion: 'C3', indicator: '관련 정보 근접 배치' },
-  M07: { on: true, criterion: 'C4', indicator: '응답 방식 인지' },
-  M08: { on: true, criterion: 'C4', indicator: '응답 결과 표시' }
+  E01: { on: true, criterion: 'C1', indicator: 'I01', elements: ['extra'] },
+  E02: { on: true, criterion: 'C1', indicator: 'I02', elements: ['mascot'] },
+  E03: { on: true, criterion: 'C2', indicator: 'I05', elements: ['data', 'resp'] },   // 색으로만 구분한 지층 그림, 색 이름뿐인 선택지
+  E04: { on: true, criterion: 'C2', indicator: 'I07', elements: ['stem'] },
+  E05: { on: true, criterion: 'C3', indicator: 'I09', elements: ['popup'] },
+  E06: { on: true, criterion: 'C3', indicator: 'I10', elements: ['dataA', 'dataB'] },
+  E07: { on: true, criterion: 'C4', indicator: 'I11', elements: ['resp'] },
+  E08: { on: true, criterion: 'C4', indicator: 'I14', elements: ['bins'] },
+  M01: { on: true, criterion: 'C1', indicator: 'I01', elements: ['extra'] },
+  M02: { on: true, criterion: 'C1', indicator: 'I02', elements: ['mascot'] },
+  M03: { on: true, criterion: 'C2', indicator: 'I05', elements: ['data', 'resp'] },   // 색으로만 구분한 화살표, 색 이름뿐인 잇기 칸
+  M04: { on: true, criterion: 'C2', indicator: 'I07', elements: ['stem'] },
+  M05: { on: true, criterion: 'C3', indicator: 'I09', elements: ['popup'] },
+  M06: { on: true, criterion: 'C3', indicator: 'I10', elements: ['dataA', 'dataB'] },
+  M07: { on: true, criterion: 'C4', indicator: 'I11', elements: ['resp'] },
+  M08: { on: true, criterion: 'C4', indicator: 'I14', elements: ['bins'] }
 };
 
 // ===================== 5. 평정 대상 문항 =====================
@@ -388,20 +357,47 @@ function submit(r) {
      .concat([r.order.join(','), JSON.stringify(seen)])
      .concat(finalCols));
 
-    // ratings (긴 형식) + items (조작 로그)
-    const ratingRows = [];
+    // judgments (판단 한 개당 한 줄) + items (문항 한 개당 한 줄: 조작 로그와 판단 요약)
+    const judgRows = [];
     const itemRows = [];
+    const inds = indicatorList_();
     r.items.forEach(it => {
       const def = byId[it.id];
       const df = DEFECTS[it.id] || null;
       const on = df ? !!seen[it.id] : false;
-      const tag = [it.id, def.set, def.no, def.school, def.subject, def.type,
-                   df ? df.criterion : '', df ? df.indicator : '', df ? on : ''];
-      ratingKeys_().forEach(k => {
-        const flawed = !!(df && on && df.criterion === k.key);
-        ratingRows.push([r.pid, r.test, batch].concat(tag, [it.pos, k.key, k.name, flawed, it.ratings[k.key]]));
+      const intended = on ? df.elements : [];
+      const tag = [it.id, def.set, def.no, def.school, def.subject, def.type, on,
+                   on ? df.criterion : '', on ? df.indicator : '', on ? indicatorName_(df.indicator) : '', on ? intended.join(',') : ''];
+      const els = it.elementMap || {};          // 이 문항 화면의 요소 key → { n, name }
+      const sum = { judged: 0, na: 0, unmet: 0, over: 0, mixed: 0, detect: [], review: 0 };
+      inds.forEach(ind => {
+        const j = (it.judgments || {})[ind.id] || {};
+        const v = j.v || '';
+        const ev = j.els || [];
+        const hitsDefect = v === 'unmet' && ev.some(k => intended.indexOf(k) >= 0);
+        const hitsOther = v === 'unmet' && ev.some(k => intended.indexOf(k) < 0);
+        const type = v === 'met' ? '충족' : v === 'na' ? '해당 없음' : v === 'unmet' ? (hitsDefect ? '결함 탐지' : '과잉 판단') : '';
+        if (v && v !== 'na') sum.judged++;
+        if (v === 'na') sum.na++;
+        if (v === 'unmet') sum.unmet++;
+        if (type === '과잉 판단') sum.over++;
+        if (hitsDefect && hitsOther) sum.mixed++;
+        if (hitsDefect) sum.detect.push(ind.id);
+        if (ev.indexOf('other') >= 0) sum.review++;
+        judgRows.push([r.pid, r.test, batch, r.level || ''].concat(tag, [
+          it.pos, ind.crit, ind.id, ind.name, LABEL_[v] || '',
+          ev.join(','), ev.map(k => (els[k] ? els[k].n + ' ' + els[k].name : k)).join(' / '), j.note || '',
+          type, hitsDefect, hitsOther,
+          on && v === 'unmet' ? ind.id === df.indicator : '', on && v === 'unmet' ? ind.crit === df.criterion : '',
+          ev.indexOf('other') >= 0
+        ]));
       });
-      itemRows.push([r.pid, r.test, batch].concat(tag, [
+      // 결함 문항: 탐지했는가, 의도한 지표에서만 판단했는가(준거 일치) / 다른 지표·여러 지표에서 판단했는가(준거 혼동)
+      const detected = on ? sum.detect.length > 0 : '';
+      let match = '';
+      if (on && detected) match = (sum.detect.length === 1 && sum.detect[0] === df.indicator) ? '일치' : '혼동';
+      const critOnly = on && detected ? sum.detect.every(id => indicatorCrit_(id) === df.criterion) : '';
+      itemRows.push([r.pid, r.test, batch, r.level || ''].concat(tag, [
         it.pos,
         Math.round(it.visibleMs / 100) / 10, it.visits,
         it.firstInteractMs, it.interactions, it.interactions > 0,
@@ -409,11 +405,13 @@ function submit(r) {
         sec_(it.solveMs), sec_(it.firstRatingMs), sec_(it.lastRatingMs), it.lateInteractions || 0,
         it.response == null ? '' : JSON.stringify(it.response),
         it.correct == null ? '' : (it.correct ? 1 : 0),
-        it.ratingChanges, it.comment || ''
+        sum.judged, sum.na, sum.unmet, sum.over, sum.mixed, sum.review,
+        detected, sum.detect.join(','), match, critOnly,
+        it.judgmentChanges || 0, it.comment || ''
       ]));
     });
-    const rs = ss.getSheetByName('ratings');
-    rs.getRange(rs.getLastRow() + 1, 1, ratingRows.length, ratingRows[0].length).setValues(ratingRows);
+    const js = ss.getSheetByName('judgments');
+    js.getRange(js.getLastRow() + 1, 1, judgRows.length, judgRows[0].length).setValues(judgRows);
     const is = ss.getSheetByName('items');
     is.getRange(is.getLastRow() + 1, 1, itemRows.length, itemRows[0].length).setValues(itemRows);
 
@@ -448,28 +446,36 @@ function setup() {
    .concat(['item_order', 'defects'])
    .concat(allFinalKeys_()));
 
-  // item_id = 문항(E01~E12, M01~M12), set·item_no = 세트와 세트 안 설계 번호, school·subject·type = 학교급·교과·응답 형식
-  // target_criterion·indicator = 결함 문항이 건드린 준거·지표 (결함 없는 문항은 빈칸)
-  // defect_on = 이 참여자에게 그 결함이 켜져 있었는가 (결함 없는 문항은 빈칸)
-  // flawed = 이 준거에 결함을 넣은 화면이었는가 (defect_on 이고 criterion 이 target_criterion 일 때만 TRUE)
-  // FACETS 국면은 평정자(pid) × 문항(item_id) × 준거(criterion)로 둡니다. 세트(E·M)가 다르면 공통 문항이 없으므로
-  // 세트별로 따로 분석하거나, 지표(indicator)·결함 여부(flawed)를 국면으로 묶어 견주세요.
-  ss.insertSheet('ratings').appendRow([
-    'pid', 'test', 'batch', 'item_id', 'set', 'item_no', 'school', 'subject', 'type',
-    'target_criterion', 'indicator', 'defect_on',
-    'position', 'criterion', 'criterion_name', 'flawed', 'score'
+  // [judgments] 지표 판단 한 개당 한 줄 (교사 × 문항 × 지표 14개)
+  //   defect_on = 이 참여자에게 이 문항이 결함 문항이었는가. target_* = 의도한 준거·지표·결함 요소 (결함 없는 문항은 빈칸)
+  //   judgment = 충족 / 미충족 / 해당 없음, evidence_keys = 근거 요소 key, evidence = 화면 번호와 이름, note = 교사 메모
+  //   judgment_type = 충족 / 해당 없음 / 결함 탐지(근거에 의도한 결함 요소가 있음) / 과잉 판단(근거에 의도한 결함 요소가 없음)
+  //   hits_defect·hits_other = 근거에 의도한 결함 요소 / 그 밖의 요소가 들어 있는가 (둘 다 TRUE면 섞인 근거)
+  //   on_target_indicator·on_target_criterion = 미충족 판단이 의도한 지표·준거에서 이루어졌는가 (결함 문항만)
+  //   needs_review = 근거로 '그 밖의 요소(메모)'를 고름 → 연구자가 메모를 보고 분류를 확인
+  ss.insertSheet('judgments').appendRow([
+    'pid', 'test', 'batch', 'level', 'item_id', 'set', 'item_no', 'school', 'subject', 'type', 'defect_on',
+    'target_criterion', 'target_indicator_id', 'target_indicator', 'target_elements',
+    'position', 'criterion', 'indicator_id', 'indicator', 'judgment',
+    'evidence_keys', 'evidence', 'note',
+    'judgment_type', 'hits_defect', 'hits_other', 'on_target_indicator', 'on_target_criterion', 'needs_review'
   ]);
-  // visible_sec = 문항 화면을 본 시간 전체(풀이 + 평정). solve_sec = 첫 평정 전 마지막 조작까지(풀이 시간)
-  // first_rating_sec·last_rating_sec = 첫·마지막 평정 버튼까지. 평정 시간 ≈ last_rating_sec − solve_sec
-  // passage_opens = 지문 팝업을 연 횟수(5번), answer_checks = [정답 확인]을 누른 횟수, scratch_opens = 연습장을 연 횟수
-  // correct = 마지막 응답이 정답인가 (1/0, 풀지 않았으면 빈칸)
+  // [items] 문항 한 개당 한 줄 — 조작 로그와 판단 요약
+  //   visible_sec = 문항 화면을 본 시간 전체, solve_sec = 첫 판단 전 마지막 조작까지(풀이 시간)
+  //   passage_opens·answer_checks·scratch_opens = 지문 팝업·정답 확인·연습장을 쓴 횟수, correct = 마지막 응답의 정답 여부
+  //   judged = '해당 없음'을 뺀 판단 수, unmet = 미충족 수, over = 과잉 판단 수, mixed = 섞인 근거 수, review = 메모 확인 필요 수
+  //   detected = 결함을 탐지했는가(결함 문항만), detect_indicators = 결함 탐지가 나온 지표
+  //   criterion_match = 일치(의도한 지표에서만 탐지) / 혼동(다른 지표나 여러 지표에서 탐지), same_criterion_only = 탐지가 모두 의도한 준거 안인가
   ss.insertSheet('items').appendRow([
-    'pid', 'test', 'batch', 'item_id', 'set', 'item_no', 'school', 'subject', 'type',
-    'target_criterion', 'indicator', 'defect_on',
+    'pid', 'test', 'batch', 'level', 'item_id', 'set', 'item_no', 'school', 'subject', 'type', 'defect_on',
+    'target_criterion', 'target_indicator_id', 'target_indicator', 'target_elements',
     'position', 'visible_sec', 'visits', 'first_interaction_ms', 'interactions', 'interacted',
     'passage_opens', 'answer_checks', 'scratch_opens',
     'solve_sec', 'first_rating_sec', 'last_rating_sec', 'late_interactions',
-    'response', 'correct', 'rating_changes', 'comment'
+    'response', 'correct',
+    'judged', 'na', 'unmet', 'over', 'mixed', 'review',
+    'detected', 'detect_indicators', 'criterion_match', 'same_criterion_only',
+    'judgment_changes', 'comment'
   ]);
   const codes = ss.insertSheet('codes');
   codes.appendRow(['code', 'batch', 'status', 'pid', 'first_used', 'attempts', 'done_at', 'item_order']);
@@ -509,7 +515,11 @@ function checkConfig() {
   const byId = itemsById_();
   const errs = [];
   const allInds = {};
-  SURVEY.criteria.forEach(c => (c.indicators || []).forEach(x => { allInds[x.name] = c.key; }));
+  SURVEY.criteria.forEach(c => (c.indicators || []).forEach(x => { allInds[x.id] = c.key; }));
+  const ELS = ['extra', 'mascot', 'data', 'resp', 'stem', 'popup', 'dataA', 'dataB', 'bins', 'bank', 'guide', 'direction'];
+  Object.keys(DEFECTS).forEach(id => (DEFECTS[id].elements || []).forEach(k => {
+    if (ELS.indexOf(k) < 0) errs.push(id + ': 알 수 없는 결함 요소 "' + k + '"');
+  }));
   const nInd = Object.keys(allInds).length;
   if (nInd !== 14) errs.push('지표가 ' + nInd + '개 (14개여야 함)');
   const indSets = {};
@@ -536,9 +546,84 @@ function checkConfig() {
              Object.keys(DEFECTS).filter(k => DEFECTS[k].on).length + '개), 지표 ' + nInd + '개');
 }
 
-/** 기록할 평정 항목 (준거 차례대로). 시트 ratings 탭의 criterion 열에 들어감 */
-function ratingKeys_() {
-  return SURVEY.criteria.map(c => ({ key: c.key, name: c.name }));
+const LABEL_ = { met: '충족', unmet: '미충족', na: '해당 없음' };
+
+/** 지표 목록 (준거 차례대로) [{ id, name, crit }] */
+function indicatorList_() {
+  const out = [];
+  SURVEY.criteria.forEach(c => c.indicators.forEach(x => out.push({ id: x.id, name: x.name, crit: c.key })));
+  return out;
+}
+function indicatorName_(id) { const x = indicatorList_().find(d => d.id === id); return x ? x.name : id; }
+function indicatorCrit_(id) { const x = indicatorList_().find(d => d.id === id); return x ? x.crit : ''; }
+
+/**
+ * 결함 탐지율·준거 일치율·과잉 판단율을 계산해 summary 탭에 씁니다 (test=TRUE 인 미리보기 응답은 뺍니다).
+ *   결함 탐지율 = 결함 문항 평정(교사 × 결함 문항) 가운데 의도한 결함 요소를 근거로 '미충족'을 판단한 비율
+ *   준거 일치율 = 결함을 탐지한 평정 가운데 의도한 지표에서만 판단한 비율 (지표 기준). 준거 기준 비율도 함께 적습니다
+ *   과잉 판단율 = '해당 없음'을 뺀 전체 지표 판단 가운데 의도한 결함 요소가 아닌 요소만을 근거로 '미충족'을 판단한 비율
+ *   ※ 근거에 결함 요소와 다른 요소가 섞이면 결함 탐지로 세고, 섞인 근거 수(mixed)를 따로 적습니다.
+ *   ※ '그 밖의 요소(메모)'를 고른 판단(needs_review)은 메모를 읽고 judgments 탭의 judgment_type 을 고친 뒤 다시 실행하세요.
+ *      summarize 는 judgments 탭의 judgment_type 열을 그대로 읽어 다시 셉니다.
+ */
+function summarize() {
+  const ss = SpreadsheetApp.openById(getSheetId_());
+  const J = readTab_(ss, 'judgments').filter(r => r.test !== true && String(r.test).toUpperCase() !== 'TRUE');
+  // 교사 × 문항 단위로 다시 묶는다 (judgment_type 을 연구자가 고쳤을 수 있으므로 items 탭 대신 judgments 에서 계산)
+  const byRating = {};
+  J.forEach(r => {
+    const k = r.pid + '|' + r.item_id;
+    const g = byRating[k] || (byRating[k] = { pid: r.pid, level: r.level, item: r.item_id, on: r.defect_on === true || r.defect_on === 'TRUE',
+      target: r.target_indicator_id, targetCrit: r.target_criterion, detect: [], judged: 0, over: 0, mixed: 0 });
+    if (r.judgment && r.judgment !== '해당 없음') g.judged++;
+    if (r.judgment_type === '과잉 판단') g.over++;
+    if (r.judgment_type === '결함 탐지') { g.detect.push(r.indicator_id); if (r.hits_other === true || r.hits_other === 'TRUE') g.mixed++; }
+  });
+  const ratings = Object.keys(byRating).map(k => byRating[k]);
+  const rate = (a, b) => (b ? Math.round(a / b * 1000) / 10 : '');
+  function stats(rs, label, key) {
+    const def = rs.filter(g => g.on);
+    const det = def.filter(g => g.detect.length);
+    const match = det.filter(g => g.detect.length === 1 && g.detect[0] === g.target);
+    const critOnly = det.filter(g => g.detect.every(id => indicatorCrit_(id) === g.targetCrit));
+    const judged = rs.reduce((n, g) => n + g.judged, 0), over = rs.reduce((n, g) => n + g.over, 0);
+    const mixed = rs.reduce((n, g) => n + g.mixed, 0);
+    return [label, key, def.length, det.length, rate(det.length, def.length), match.length, rate(match.length, det.length),
+            critOnly.length, rate(critOnly.length, det.length), judged, over, rate(over, judged), mixed];
+  }
+  const rows = [['구분', '대상', '결함 문항 평정 수', '결함 탐지 수', '결함 탐지율(%)', '준거 일치 수(지표)', '준거 일치율(%)',
+                 '같은 준거 안 탐지 수', '준거 수준 일치율(%)', '지표 판단 수(해당 없음 제외)', '과잉 판단 수', '과잉 판단율(%)', '섞인 근거 수']];
+  rows.push(stats(ratings, '전체', '전체'));
+  SETS.forEach(set => rows.push(stats(ratings.filter(g => g.level === set), '학교급', set === 'E' ? '초등' : '중등')));
+  const uniq = xs => xs.filter((x, i) => xs.indexOf(x) === i);
+  uniq(ratings.map(g => g.pid)).forEach(pid => rows.push(stats(ratings.filter(g => g.pid === pid), '교사', pid)));
+  ITEMS.forEach(it => { const rs = ratings.filter(g => g.item === it.id); if (rs.length) rows.push(stats(rs, '문항', it.id)); });
+  // 지표별 과잉 판단 (어느 지표에서 결함이 아닌 요소를 결함으로 보았는가)
+  rows.push([]);
+  rows.push(['지표별', '지표', '지표 판단 수(해당 없음 제외)', '미충족 수', '결함 탐지 수', '과잉 판단 수', '과잉 판단율(%)', '해당 없음 수']);
+  indicatorList_().forEach(ind => {
+    const rs = J.filter(r => r.indicator_id === ind.id);
+    const judged = rs.filter(r => r.judgment && r.judgment !== '해당 없음').length;
+    const over = rs.filter(r => r.judgment_type === '과잉 판단').length;
+    rows.push(['지표별', ind.id + ' ' + ind.name, judged, rs.filter(r => r.judgment === '미충족').length,
+               rs.filter(r => r.judgment_type === '결함 탐지').length, over, rate(over, judged), rs.filter(r => r.judgment === '해당 없음').length]);
+  });
+  let sh = ss.getSheetByName('summary');
+  if (sh) sh.clear(); else sh = ss.insertSheet('summary');
+  const w = Math.max.apply(null, rows.map(r => r.length));
+  sh.getRange(1, 1, rows.length, w).setValues(rows.map(r => r.concat(new Array(w - r.length).fill(''))));
+  sh.setFrozenRows(1);
+  Logger.log('summary 탭을 만들었습니다: 평정 ' + ratings.length + '건');
+}
+
+/** 탭을 [{열 이름: 값}] 로 읽는다 */
+function readTab_(ss, name) {
+  const sh = ss.getSheetByName(name);
+  const n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  const v = sh.getRange(1, 1, n + 1, sh.getLastColumn()).getValues();
+  const head = v[0];
+  return v.slice(1).map(row => { const o = {}; head.forEach((h, i) => { o[h] = row[i]; }); return o; });
 }
 
 function allFinalKeys_() {
