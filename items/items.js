@@ -1,5 +1,5 @@
 /*
- * 평정용 24문항 — 초등 세트(E01~E12) · 중등 세트(M01~M12)
+ * 평정용 24문항 — 초등 세트(E01~E12) · 중등 세트(M01~M12) · 준거 4개, 지표 13개
  * ------------------------------------------------------------
  * render(D) 는 문항 화면(평정 대상 영역) HTML 을 돌려준다.
  * D('E03') 처럼 문항 id 로 그 문항의 결함 스위치(true/false)를 읽는다.
@@ -67,10 +67,10 @@
   const dragArea = (bins, extraClass) => `${guide('drag')}
     <div class="i-bank${extraClass ? ' ' + extraClass : ''}" data-bank aria-label="카드가 있는 곳"${el('bank', '카드')}></div>
     <div class="i-bins c${bins.length}"${el('bins', '카드 놓는 칸')}>${bins.map(b => bin(b[0], b[1])).join('')}</div>`;
-  // 정보 선별 결함: 풀이에 쓰이지 않는 덧붙임 지식 상자 (평범한 글상자, 그림·강조 없음)
+  // (예전 정보 선별 결함용 덧붙임 지식 상자 — 지금은 쓰지 않음)
   const extra = t => `<aside class="i-extra"${el('extra', '더 알아보기 상자')}><p class="i-extra-h">더 알아보기</p><p>${t}</p></aside>`;
-  // 장식 절제 결함: 문두 옆의 큰 정지 캐릭터 (움직임·글 없음)
-  // 장식 절제 결함: 문두 옆의 큰 정지 캐릭터 (지문 내용과 관련 있는 모습. 움직임·글자·말풍선 없음, 풀이 단서 없음)
+  // 불필요 요소 배제 결함: 문두 옆의 큰 정지 캐릭터 (움직임·글 없음)
+  // 불필요 요소 배제 결함: 문두 옆의 큰 정지 캐릭터 (지문 내용과 관련 있는 모습. 움직임·글자·말풍선 없음, 풀이 단서 없음)
   const mascot = (body, name) => `<svg class="i-mascot" viewBox="0 0 200 200" aria-hidden="true" data-el="mascot" data-el-name="${name}">${body}</svg>`;
   // E02 '개미의 더듬이' — 웃는 개미
   const MASCOT_ANT = mascot(`
@@ -185,6 +185,35 @@
   const FIG_A = gridFigure(7, 5, [[1, 1], [6, 1], [6, 4], [1, 4]], '(가)');                      // 15
   const FIG_B = gridFigure(6, 6, [[1, 1], [3, 1], [3, 3], [5, 3], [5, 5], [1, 5]], '(나)');      // 12
 
+  // 반복 최소화 결함: 표의 수치를 그대로 옮긴 막대그래프. 기준선이 없고 값이 기준 근처라 표 이상의 도움을 주지 않는다.
+  // 막대는 모두 같은 색(색 구분 없음), 막대 아래에 이름 글자.
+  function barGraph(names, values, max, step, yLabel) {
+    const W = 420, H = 230, L = 52, T = 14, R = 10, B = 40, pw = W - L - R, ph = H - T - B;
+    const y = v => T + ph - (v / max) * ph, bw = pw / names.length;
+    let g = '';
+    for (let v = 0; v <= max + 1e-9; v += step) {
+      const t = Math.round(v * 10) / 10;
+      g += `<line x1="${L}" y1="${y(t)}" x2="${W - R}" y2="${y(t)}" stroke="#E3E7EC"/><text x="${L - 8}" y="${y(t) + 5}" text-anchor="end" font-size="15" fill="#333">${t}</text>`;
+    }
+    names.forEach((n, i) => {
+      const x = L + i * bw + bw * 0.22, w = bw * 0.56;
+      g += `<rect x="${x}" y="${y(values[i])}" width="${w}" height="${T + ph - y(values[i])}" fill="#7C93B5"/>` +
+           `<text x="${x + w / 2}" y="${T + ph + 22}" text-anchor="middle" font-size="16" fill="#222">${n}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="표의 값을 나타낸 막대그래프">${g}
+      <line x1="${L}" y1="${T}" x2="${L}" y2="${T + ph}" stroke="#333" stroke-width="2"/>
+      <line x1="${L}" y1="${T + ph}" x2="${W - R}" y2="${T + ph}" stroke="#333" stroke-width="2"/>
+      <text x="12" y="${T + ph / 2}" font-size="14" fill="#333" transform="rotate(-90 12 ${T + ph / 2})" text-anchor="middle">${yLabel}</text></svg>`;
+  }
+  // 가로 표: 첫 줄 이름, 둘째 줄 값
+  const hTable = (h1, h2, names, values) => `<table class="i-table wide"><tbody>
+    <tr><th>${h1}</th>${names.map(n => `<td>${n}</td>`).join('')}</tr>
+    <tr><th>${h2}</th>${values.map(v => `<td>${v}</td>`).join('')}</tr></tbody></table>`;
+  // 표(필요한 자료)와, 결함이 켜지면 같은 수치의 막대그래프(반복)를 나란히
+  const tableWithRepeat = (on, table, graph) => on
+    ? `<div class="i-row rep"><div class="i-data fig table"${el('data', '표')}>${table}</div><div class="i-data fig"${el('graph', '막대그래프')}>${graph}</div></div>`
+    : `<div class="i-data fig table" style="max-width:720px"${el('data', '표')}>${table}</div>`;
+
   // M06 가열 곡선. 같은 눈금(0~120 ℃, 0~10분)으로 그린 두 그래프
   function heatCurve(label, bp) {
     const W = 400, H = 250, L = 56, T = 14, R = 12, B = 44, pw = W - L - R, ph = H - T - B;
@@ -244,21 +273,23 @@
   const DIR_POEM = '다음 시를 읽고, 물음에 답하세요.';
   const ITEMS = [
     // ======================= 초등 세트 =======================
-    // E01 ─ 과학·끌어 놓기 ─ 정보 선별
+    // E01 ─ 과학·끌어 놓기 ─ 반복 최소화 (표를 그대로 옮긴 막대그래프)
     {
       id: 'E01', set: 'E', no: 1, school: '초', subject: '과학', type: 'drag',
       cards: [
-        { id: 'c1', html: '돌멩이', ans: 'solid' }, { id: 'c2', html: '우유', ans: 'liquid' },
-        { id: 'c3', html: '풍선 속 공기', ans: 'gas' }, { id: 'c4', html: '얼음', ans: 'solid' },
-        { id: 'c5', html: '식용유', ans: 'liquid' }, { id: 'c6', html: '축구공 속 공기', ans: 'gas' }
+        { id: 'a', html: '사과', ans: 'heavy' }, { id: 'b', html: '귤', ans: 'light' }, { id: 'c', html: '필통', ans: 'heavy' },
+        { id: 'd', html: '컵', ans: 'light' }, { id: 'e', html: '공책', ans: 'heavy' }, { id: 'f', html: '가위', ans: 'light' }
       ],
-      bins: [{ id: 'solid' }, { id: 'liquid' }, { id: 'gas' }],
-      render: D => stem('다음 물체를 고체, 액체, 기체로 나누어 알맞은 칸에 끌어다 놓으세요.') +
-        `<section class="i-resp">${dragArea([['solid', '고체'], ['liquid', '액체'], ['gas', '기체']])}</section>` +
-        (D('E01') ? extra('‘물질’은 ‘물건의 바탕’이라는 뜻을 가진 낱말이에요. 우리 주변의 물체는 모두 물질로 이루어져 있어요.') : '')
+      bins: [{ id: 'heavy' }, { id: 'light' }],
+      render: D => {
+        const n = ['사과', '귤', '필통', '컵', '공책', '가위'], v = [210, 95, 105, 98, 150, 85];
+        return stem('표는 물체 6개의 무게를 저울로 잰 결과입니다. 100 g보다 무거운 물체와 가벼운 물체로 나누어 알맞은 칸에 끌어다 놓으세요.') +
+          tableWithRepeat(D('E01'), hTable('물체', '무게(g)', n, v), barGraph(n, v, 250, 50, '무게(g)')) +
+          `<section class="i-resp short-bins">${dragArea([['heavy', '100 g보다 무거운 물체'], ['light', '100 g보다 가벼운 물체']])}</section>`;
+      }
     },
 
-    // E02 ─ 국어·선택형 ─ 장식 절제
+    // E02 ─ 국어·선택형 ─ 불필요 요소 배제 (지문과 관련된 장식 캐릭터)
     {
       id: 'E02', set: 'E', no: 2, school: '초', subject: '국어', type: 'choice',
       choices: [
@@ -400,21 +431,23 @@
     },
 
     // ======================= 중등 세트 =======================
-    // M01 ─ 사회·끌어 놓기 ─ 정보 선별
+    // M01 ─ 사회·끌어 놓기 ─ 반복 최소화 (표를 그대로 옮긴 막대그래프)
     {
       id: 'M01', set: 'M', no: 1, school: '중', subject: '사회', type: 'drag',
       cards: [
-        { id: 'p1', html: '풍부한 일자리', ans: 'pull' }, { id: 'p2', html: '잦은 분쟁과 전쟁', ans: 'push' },
-        { id: 'p3', html: '높은 임금 수준', ans: 'pull' }, { id: 'p4', html: '낮은 소득 수준', ans: 'push' },
-        { id: 'p5', html: '부족한 교육·의료 시설', ans: 'push' }, { id: 'p6', html: '쾌적한 주거 환경', ans: 'pull' }
+        { id: 'a', html: '(가)', ans: 'high' }, { id: 'b', html: '(나)', ans: 'low' }, { id: 'c', html: '(다)', ans: 'high' },
+        { id: 'd', html: '(라)', ans: 'low' }, { id: 'e', html: '(마)', ans: 'high' }, { id: 'f', html: '(바)', ans: 'low' }
       ],
-      bins: [{ id: 'pull' }, { id: 'push' }],
-      render: D => stem('인구 이동에 영향을 주는 요인을 나타낸 카드를 흡인 요인과 배출 요인으로 나누어 알맞은 칸에 끌어다 놓으세요.') +
-        `<section class="i-resp">${dragArea([['pull', '흡인 요인'], ['push', '배출 요인']])}</section>` +
-        (D('M01') ? extra('세계 인구는 2022년에 80억 명을 넘어섰다. 이는 1950년 무렵 세계 인구(약 25억 명)의 세 배가 넘는 수이다.') : '')
+      bins: [{ id: 'high' }, { id: 'low' }],
+      render: D => {
+        const n = ['(가)', '(나)', '(다)', '(라)', '(마)', '(바)'], v = [2.3, 1.9, 2.2, 2.0, 3.4, 1.2];
+        return stem('표는 나라 (가)~(바)의 합계 출산율을 나타낸 것입니다. 합계 출산율이 인구 대체 수준(2.1명)보다 높은 나라와 낮은 나라로 나누어 알맞은 칸에 끌어다 놓으세요.') +
+          tableWithRepeat(D('M01'), hTable('나라', '합계 출산율(명)', n, v.map(x => x.toFixed(1))), barGraph(n, v, 4, 1, '합계 출산율(명)')) +
+          `<section class="i-resp short-bins">${dragArea([['high', '2.1명보다 높은 나라'], ['low', '2.1명보다 낮은 나라']])}</section>`;
+      }
     },
 
-    // M02 ─ 국어·선택형 ─ 장식 절제 (긴 설명문, 지문 칸만 스크롤)
+    // M02 ─ 국어·선택형 ─ 불필요 요소 배제 (지문과 관련된 장식 캐릭터, 긴 설명문)
     {
       id: 'M02', set: 'M', no: 2, school: '중', subject: '국어', type: 'choice',
       choices: [

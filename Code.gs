@@ -1,6 +1,6 @@
 /**
  * 디지털 평가 문항 평정 연구 — 교사 평정 웹앱 (서버 코드)
- * 최종 준거(4준거 14지표) · 평정용 24문항 — 초등 세트 12(E01~E12) · 중등 세트 12(M01~M12)
+ * 준거 4개·지표 13개(델파이 전 시안: 정보 선별+장식 절제를 '불필요 요소 배제'로 통합) · 평정용 24문항 — 초등 세트 12(E01~E12) · 중등 세트 12(M01~M12)
  *   교사는 기본 정보의 '근무 학교급' 답에 따라 한 세트(12문항)만 평정합니다.
  *
  * [파일 구성]
@@ -32,7 +32,7 @@
  *
  * [응답 시트 구성]
  *   participants : 참여자 한 명당 한 줄 (세트 level, 기본 정보, 소요 시간, 문항 제시 순서, 결함 상태, 마지막 의견)
- *   judgments    : 지표 판단 한 개당 한 줄 (교사 × 문항 × 지표 14개 → 충족/미충족/해당 없음, 근거 요소, 판단 유형)
+ *   judgments    : 지표 판단 한 개당 한 줄 (교사 × 문항 × 지표 13개 → 충족/미충족/해당 없음, 근거 요소, 판단 유형)
  *   items        : 문항 한 개당 한 줄 → 조작 로그 + 판단 요약 (결함 탐지 여부, 준거 일치/혼동, 과잉 판단 수)
  *   summary      : summarize 를 실행하면 만들어짐 → 결함 탐지율·준거 일치율·과잉 판단율 (전체·학교급·교사·문항·지표별)
  *   codes        : 참여 코드 관리
@@ -60,7 +60,7 @@ const STUDY = {
   // 문항·준거 기술문·결함 설정·화면을 고쳤다면 반드시 바꾸세요. 그래야 분석할 때
   // 어느 자료가 어느 판으로 모인 것인지 가를 수 있습니다.
   // ※ 교사 화면 index.html 의 SERVER.toolVersion 과 글자까지 같아야 합니다.
-  toolVersion: '준거14-2',
+  toolVersion: '준거13-1',
 
   // 앱스크립트 웹앱 주소 — 교사 화면(GitHub Pages)이 이 주소로 응답을 보냅니다.
   // 주소가 바뀌면 여기와 index.html 의 SERVER.url 을 함께 고치세요.
@@ -84,22 +84,22 @@ const STUDY = {
 };
 
 // ===================== 2. 평정 설정 =====================
-// 평정 단위: 문항마다 지표 14개를 '충족 / 미충족 / 해당 없음' 중 하나로 판단합니다(점수별 기술문 없음).
+// 평정 단위: 문항마다 지표 13개를 '충족 / 미충족 / 해당 없음' 중 하나로 판단합니다(점수별 기술문 없음).
 // '미충족'이면 문항 화면에 번호로 표시된 요소 가운데 근거가 된 요소를 하나 이상 고릅니다.
 // 이 근거 요소를 DEFECTS.elements(의도한 결함 요소)와 대조해 결함 탐지·준거 일치·과잉 판단을 가립니다(summarize).
 const SURVEY = {
   name: '문항 평정',
   // 안내 화면 맨 위 한 줄. 진행 단계·평정 대상 도식·판단 표는 교사 화면(index.html renderGuide)에 있습니다.
   guide: '선생님 학교급에 맞는 디지털 평가 문항 12개를 차례로 보여 드립니다.',
-  // 준거 4개, 지표 14개(최종 준거). id 는 시트의 indicator_id 열에 남고, DEFECTS.indicator 가 이 id 를 가리킵니다.
+  // 준거 4개, 지표 13개 (델파이 전 시안). id 는 시트의 indicator_id 열에 남고, DEFECTS.indicator 가 이 id 를 가리킵니다.
   // 이름과 내용은 최종 준거표와 글자까지 같아야 합니다.
   //   short : 평정 칸 위쪽 준거 칸(탭)에 쓰는 짧은 이름
   criteria: [
     {
       key: 'C1', name: '화면 요소의 필요성', short: '필요성',
       indicators: [
-        { id: 'I01', name: '정보 선별', text: '화면의 정보는 풀이와 응답에 필요한 것으로 한정된다.' },
-        { id: 'I02', name: '장식 절제', text: '주의를 분산시키는 장식 요소는 제시되지 않는다.' },
+        // I01 은 예전 '정보 선별'과 '장식 절제'(I02)를 합친 지표. I02 는 쓰지 않는다(다른 지표 id 는 그대로).
+        { id: 'I01', name: '불필요 요소 배제', text: '풀이와 응답에 필요하지 않은 정보나 장식 요소는 제시되지 않는다.' },
         { id: 'I03', name: '반복 최소화', text: '같은 정보는 풀이에 도움이 될 때에만 다른 형식으로 반복 제시된다.' }
       ]
     },
@@ -158,12 +158,12 @@ const DEMO = [
 /*
  * 세트마다 결함 문항 8개(준거별 2개, 서로 다른 지표 8개). 두 세트는 같은 지표 8개를 같은 결함 방식으로 다루고,
  * 내용만 학교급에 맞게 다릅니다. 문항 id 로 켜고 끕니다. on 을 false 로 바꾸면 그 문항은
- * 14개 지표를 모두 충족하는 판으로 나갑니다. 화면 차이는 items/items.js 에 있습니다.
+ * 13개 지표를 모두 충족하는 판으로 나갑니다. 화면 차이는 items/items.js 에 있습니다.
  * 바꾼 뒤에는 toolVersion 을 바꾸세요(시트의 defect_on 열에도 그 사람이 본 상태가 남습니다).
  *
  *   지표(id)           결함 방식                                         초등   중등
- *   정보 선별          응답 영역 아래 풀이와 무관한 덧붙임 지식 상자            E01    M01
- *   장식 절제          문두 옆, 문두보다 큰 정지 캐릭터                       E02    M02
+ *   반복 최소화(I03)    표의 수치를 그대로 옮긴 막대그래프(기준선 없음)          E01    M01
+ *   불필요 요소 배제(I01) 문두 옆, 문두보다 큰 정지 캐릭터(지문과 관련된 모습)       E02    M02
  *   색 외 구분 단서     그림 요소를 색으로만 구분, 문항도 색 이름으로만 가리킴     E03    M03
  *   핵심 정보 강조      문두 어구마다 다른 강조 → 핵심 조건이 묻힘              E04    M04
  *   지문·자료 참조      지문 팝업이 응답 영역을 덮음(문두는 가리지 않음)          E05    M05
@@ -173,20 +173,20 @@ const DEMO = [
  */
 // indicator = SURVEY 의 지표 id, elements = '의도한 결함 요소'(items/items.js 의 data-el 이름).
 // 교사가 '미충족'의 근거로 고른 요소에 이 중 하나가 있으면 결함 탐지, 없으면 과잉 판단으로 봅니다.
-//   요소 이름: extra(더 알아보기 상자) · mascot(캐릭터 그림) · data(지문·그림·자료) · resp(선택지·답 칸·선 잇기 칸)
+//   요소 이름: graph(표를 옮긴 막대그래프) · mascot(캐릭터 그림) · data(지문·그림·자료) · resp(선택지·답 칸·선 잇기 칸)
 //             stem(문두) · popup(지문 보기 단추) · dataA·dataB(떨어진 두 자료) · bins(카드 놓는 칸) · bank(카드) · guide(안내)
 //             direction(국어 지시문 "다음 글을 읽고, 물음에 답하세요.") · other(그 밖의 요소 — 교사 메모로 확인)
 const DEFECTS = {
-  E01: { on: true, criterion: 'C1', indicator: 'I01', elements: ['extra'] },
-  E02: { on: true, criterion: 'C1', indicator: 'I02', elements: ['mascot'] },
+  E01: { on: true, criterion: 'C1', indicator: 'I03', elements: ['graph'] },    // 표를 그대로 옮긴 막대그래프
+  E02: { on: true, criterion: 'C1', indicator: 'I01', elements: ['mascot'] },   // 개미 캐릭터
   E03: { on: true, criterion: 'C2', indicator: 'I05', elements: ['data', 'resp'] },   // 색으로만 구분한 지층 그림, 색 이름뿐인 선택지
   E04: { on: true, criterion: 'C2', indicator: 'I07', elements: ['stem'] },
   E05: { on: true, criterion: 'C3', indicator: 'I09', elements: ['popup'] },
   E06: { on: true, criterion: 'C3', indicator: 'I10', elements: ['dataA', 'dataB'] },
   E07: { on: true, criterion: 'C4', indicator: 'I11', elements: ['resp'] },
   E08: { on: true, criterion: 'C4', indicator: 'I14', elements: ['bins'] },
-  M01: { on: true, criterion: 'C1', indicator: 'I01', elements: ['extra'] },
-  M02: { on: true, criterion: 'C1', indicator: 'I02', elements: ['mascot'] },
+  M01: { on: true, criterion: 'C1', indicator: 'I03', elements: ['graph'] },    // 표를 그대로 옮긴 막대그래프
+  M02: { on: true, criterion: 'C1', indicator: 'I01', elements: ['mascot'] },   // 고래 캐릭터
   M03: { on: true, criterion: 'C2', indicator: 'I05', elements: ['data', 'resp'] },   // 색으로만 구분한 화살표, 색 이름뿐인 잇기 칸
   M04: { on: true, criterion: 'C2', indicator: 'I07', elements: ['stem'] },
   M05: { on: true, criterion: 'C3', indicator: 'I09', elements: ['popup'] },
@@ -442,7 +442,7 @@ function setup() {
    .concat(['item_order', 'defects'])
    .concat(allFinalKeys_()));
 
-  // [judgments] 지표 판단 한 개당 한 줄 (교사 × 문항 × 지표 14개)
+  // [judgments] 지표 판단 한 개당 한 줄 (교사 × 문항 × 지표 13개)
   //   defect_on = 이 참여자에게 이 문항이 결함 문항이었는가. target_* = 의도한 준거·지표·결함 요소 (결함 없는 문항은 빈칸)
   //   judgment = 충족 / 미충족 / 해당 없음, evidence_keys = 근거 요소 key, evidence = 화면 번호와 이름, note = 교사 메모
   //   judgment_type = 충족 / 해당 없음 / 결함 탐지(근거에 의도한 결함 요소가 있음) / 과잉 판단(근거에 의도한 결함 요소가 없음)
@@ -507,17 +507,19 @@ function generateCodes() {
  * 세트마다 문항 12개·결함 8개(준거별 2개, 서로 다른 지표)인지, 두 세트가 같은 지표 8개를 다루는지,
  * 결함의 지표 이름이 SURVEY 의 지표와 같은지, levelFrom 이 DEMO 와 맞는지 확인합니다.
  */
+const EXPECTED_INDICATORS = 13;   // 지표 수가 바뀌면 여기만 고친다
+
 function checkConfig() {
   const byId = itemsById_();
   const errs = [];
   const allInds = {};
   SURVEY.criteria.forEach(c => (c.indicators || []).forEach(x => { allInds[x.id] = c.key; }));
-  const ELS = ['extra', 'mascot', 'data', 'resp', 'stem', 'popup', 'dataA', 'dataB', 'bins', 'bank', 'guide', 'direction'];
+  const ELS = ['extra', 'mascot', 'graph', 'data', 'resp', 'stem', 'popup', 'dataA', 'dataB', 'bins', 'bank', 'guide', 'direction'];
   Object.keys(DEFECTS).forEach(id => (DEFECTS[id].elements || []).forEach(k => {
     if (ELS.indexOf(k) < 0) errs.push(id + ': 알 수 없는 결함 요소 "' + k + '"');
   }));
   const nInd = Object.keys(allInds).length;
-  if (nInd !== 14) errs.push('지표가 ' + nInd + '개 (14개여야 함)');
+  if (nInd !== EXPECTED_INDICATORS) errs.push('지표가 ' + nInd + '개 (' + EXPECTED_INDICATORS + '개여야 함)');
   const indSets = {};
   SETS.forEach(set => {
     const ids = ITEMS.filter(it => it.set === set).map(it => it.id);

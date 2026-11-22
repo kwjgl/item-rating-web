@@ -261,7 +261,7 @@
 <script>
 const PREVIEW = new URLSearchParams(location.search).get('preview') ? '1' : (document.getElementById('app').dataset.preview || '');
 // 서버(앱스크립트) 주소와 도구 판. npm run build:web 이 Code.gs의 STUDY에서 읽어 채웁니다. 직접 고치지 마세요.
-const SERVER = {"url":"https://script.google.com/macros/s/AKfycbyNy5FZc8_bwkT0knZWVMoC5fBHyTvCW-9uTfU1WD1leMMHB3qF4QZJW29csodM-BNt/exec","toolVersion":"준거14-2"};
+const SERVER = {"url":"https://script.google.com/macros/s/AKfycbyNy5FZc8_bwkT0knZWVMoC5fBHyTvCW-9uTfU1WD1leMMHB3qF4QZJW29csodM-BNt/exec","toolVersion":"준거13-1"};
 const CIRC = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
 const app = document.getElementById('app');
 
@@ -626,7 +626,7 @@ function seenMs(log) {
   return log.visibleMs + (log._enter != null ? now() - log._enter : 0);
 }
 
-// 평정: 문항마다 지표 14개를 '충족 / 미충족 / 해당 없음' 중 하나로 판단한다.
+// 평정: 문항마다 지표(지금 13개)를 '충족 / 미충족 / 해당 없음' 중 하나로 판단한다.
 // '미충족'이면 문항 화면에 번호로 표시된 요소 가운데 근거가 된 요소를 하나 이상 고른다(메모는 선택, '그 밖의 요소'면 필수).
 // log.judgments = { I01: { v: 'met' | 'unmet' | 'na', els: [요소 key…], note: '' }, … }
 const JUDGE = [['met', '충족'], ['unmet', '미충족'], ['na', '해당 없음']];

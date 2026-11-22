@@ -305,3 +305,10 @@
 .i-row .i-match.compact { column-gap: 48px; }
 .i-far .graph svg { width: 300px; }
 .i-extra { margin-left: 50px; }
+/* 표 + (반복 결함) 막대그래프 나란히, 그 아래 끌어 놓기 칸은 낮게 */
+.i-row.rep { grid-template-columns: 1.1fr 1fr; align-items: center; margin-bottom: 12px; }
+.i-row.rep .i-data.fig.table { margin: 0; }
+.i-row.rep .i-table.wide th, .i-row.rep .i-table.wide td { padding: 6px 6px; font-size: 20px; }
+.i-row.rep .i-data.fig svg { display: block; width: 100%; height: auto; max-height: 200px; }
+.short-bins .i-bin-drop { min-height: 82px; }
+.short-bins .i-bank { min-height: 66px; }
