@@ -240,7 +240,7 @@
   .rate.m-solve { grid-template-columns: minmax(0, 1fr); }
   .rate.m-solve .panel { display: none; }
   .btn.ghost { min-width: 0; margin-left: auto; }
-  .bottom .btn.primary { margin-left: 0; }
+  .bottom .btn.ghost ~ .btn.primary { margin-left: 0; }   /* 평정 화면에서만(전체 화면·단계 탭 다음). 다른 화면의 [다음]은 오른쪽 끝 그대로 */
   /* 단계 탭: 지금 단계가 늘 보인다 (① 풀기 = 평정 칸 접고 문항 크게, ② 평정 = 문항 + 평정 칸) */
   .steps-tab { display: flex; flex: none; border: 1.5px solid var(--accent); border-radius: 10px; overflow: hidden; }
   .steps-tab .st { min-height: 46px; padding: 0 18px; border: 0; background: var(--panel); color: var(--accent); font-weight: 700; cursor: pointer; }
@@ -858,10 +858,9 @@ function renderRating(cur, missingList = []) {
   const crits = P.criteria || [];
   // 처음 보이는 준거 칸: 아직 다 판단하지 않은 첫 준거
   let step = Math.max(0, crits.findIndex(c => (c.indicators || []).some(x => !judgmentDone(log.judgments[x.id]))));
-  // 풀이 모드(평정 칸을 접고 문항을 크게) / 평정 모드(문항 + 평정 칸).
-  // 평정 칸을 열어도 문항이 실제 크기의 85% 이상으로 보이는 넓은 화면이면 처음부터 평정 모드로 연다.
-  const roomy = (window.innerWidth - 440) / S.study.screen.width >= 0.85 && (window.innerHeight - 170) / S.study.screen.height >= 0.85;
-  let mode = log._mode || (roomy || Object.keys(log.judgments).length ? 'rate' : 'solve');
+  // ① 풀기(평정 칸을 접고 문항을 크게) / ② 평정(문항 + 평정 칸).
+  // 화면 크기와 관계없이 처음 여는 문항은 늘 ① 풀기부터. 이미 평정을 시작한 문항은 마지막 단계로 연다.
+  let mode = log._mode || (Object.keys(log.judgments).length ? 'rate' : 'solve');
 
   const chips = `<nav class="chips" aria-label="문항 이동">
     ${LIST().map((x, i) => {
