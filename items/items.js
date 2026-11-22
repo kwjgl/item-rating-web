@@ -597,9 +597,53 @@
       answer: { v: 'vv', f: 'fan', d: 'delta' },
       render: () => stem('그림 ㉮~㉰가 나타내는 하천 지형의 이름을 찾아 알맞게 선으로 이으세요.') +
         `<section class="i-resp">${guide('match')}<div class="i-match land" data-match${el('resp', '선 잇기 칸')}></div></section>`
+    },
+
+    // ======================= 연습 문항 (학교급 공통, 분석에 넣지 않음) =======================
+    // 본 문항 결함 8개가 쓰지 않는 지표(가독성·조작 대상 크기)로 연습한다. 연습 결함은 늘 켜져 있다.
+    // practice: 연습을 마친 뒤 보여 줄 의도(target = 미충족이어야 할 지표, evidence = 근거 요소)
+    {
+      id: 'P1', set: 'P', no: 1, school: '초', subject: '수학', type: 'choice',
+      choices: ['9', '12', '14', '21'],
+      answer: 2,
+      practice: {
+        title: '연습 1 · 결함이 없는 문항',
+        target: null, evidence: [],
+        expect: '결함이 없는 문항입니다. 지표는 모두 충족입니다. 색으로 구분하는 정보가 없으므로 \'색 외 구분 단서\'는 \'해당 없음\'으로 판단할 수 있습니다. 부정어 \'아닌\'은 굵은 밑줄로 강조되어 \'핵심 정보 강조\'도 충족합니다.'
+      },
+      render: () => stem('다음 중 3의 배수가 <span class="em-key">아닌</span> 것은?') +
+        `<section class="i-resp narrow"><ol class="i-choices num" data-choices${el('resp', '선택지')}></ol></section>`
+    },
+    {
+      id: 'P2', set: 'P', no: 2, school: '초', subject: '과학', type: 'choice',
+      choices: ['소금', '모래', '쇳가루', '콩'],
+      answer: 0,
+      practice: {
+        title: '연습 2 · 결함이 있는 문항',
+        target: 'I04', evidence: ['resp'],
+        expect: '선택지 글자가 작고 흐려서 읽기 어렵습니다. 의도한 판단은 \'가독성\' 미충족, 근거 요소는 \'선택지\'입니다. 나머지 지표는 충족입니다(\'색 외 구분 단서\'는 해당 없음).'
+      },
+      render: () => stem('다음 중 물에 넣고 저었을 때 녹는 물질은?') +
+        `<section class="i-resp narrow"><ol class="i-choices faint" data-choices${el('resp', '선택지')}></ol></section>`
+    },
+    {
+      id: 'P3', set: 'P', no: 3, school: '초', subject: '과학', type: 'drag',
+      cards: [
+        { id: 'a', html: '사과', ans: 'fruit' }, { id: 'b', html: '당근', ans: 'veg' }, { id: 'c', html: '포도', ans: 'fruit' },
+        { id: 'd', html: '오이', ans: 'veg' }, { id: 'e', html: '수박', ans: 'fruit' }, { id: 'f', html: '배추', ans: 'veg' }
+      ],
+      bins: [{ id: 'fruit' }, { id: 'veg' }],
+      practice: {
+        title: '연습 3 · 미충족 판단과 근거 고르기',
+        target: 'I13', evidence: ['bank', 'bins'],
+        coach: '이 연습에서는 [② 평정]의 \'조작\' 칸에서 \'조작 대상 크기\'를 미충족으로 누르고, 근거로 문항 화면 번호의 \'카드\'를 골라 보세요.',
+        expect: '카드가 작고 서로 붙어 있어 정확히 집기 어렵습니다. 의도한 판단은 \'조작 대상 크기\' 미충족, 근거 요소는 \'카드\'입니다.'
+      },
+      render: () => stem('과일과 채소로 나누어 알맞은 칸에 끌어다 놓으세요.') +
+        `<section class="i-resp tight-cards">${dragArea([['fruit', '과일'], ['veg', '채소']])}</section>`
     }
   ];
 
   window.ITEMS = ITEMS;
-  window.ITEM_SETS = { E: '초등', M: '중등' };
+  window.ITEM_SETS = { E: '초등', M: '중등', P: '연습' };
 })();

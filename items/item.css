@@ -313,3 +313,9 @@
 .short-bins .i-bin-drop { min-height: 82px; }
 .short-bins .i-bank { min-height: 66px; }
 .i-repeat { margin: -4px 0 14px 50px; max-width: 900px; padding: 10px 16px; background: #F6F7F9; border: 1px solid #E1E5EA; border-radius: 8px; }
+/* 연습 2 결함(가독성): 선택지 글자가 작고 흐림 — 누르는 줄 높이는 그대로 */
+.i-choices.faint .i-ctext { font-size: 15px; color: #A3A9B1; }
+.i-choices.faint .i-mark { width: 24px; height: 24px; font-size: 12px; border-color: #C3C8CF; color: #A3A9B1; }
+/* 연습 3 결함(조작 대상 크기): 카드가 작고 서로 붙어 있음 — 글자 크기는 그대로 */
+.tight-cards .i-bank, .tight-cards .i-bin-drop { gap: 0; padding: 6px; }
+.tight-cards .i-card { min-height: 0; padding: 0 3px; border-width: 1px; border-radius: 3px; line-height: 1.2; font-size: 21px; }
